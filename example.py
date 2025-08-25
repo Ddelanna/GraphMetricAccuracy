@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # budget = 6
     # distance_matrix = AdjacencyMatrices().distance_matrix(data)
     # print(SamplingAlgorithms.KmeansSampling(data, budget, distance_matrix, random_state=5).query_indices)
-    # print(temp.kmeansplusplus(X=np.array(data), labels=oracle, W_gaussian=distance_matrix, n_clusters=budget, random_state=5)[1])
+    # print(kmeansplusplus(X=np.array(data), labels=oracle, W_gaussian=distance_matrix, n_clusters=budget, random_state=5)[1])
 
 
 

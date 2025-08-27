@@ -1,6 +1,35 @@
 import numpy as np
 import pandas as pd
 from HelperFunctions import _set_random_state
+import graphlearning as gl
+import matplotlib.pyplot as plt
+import sys
+import scipy
+import torch
+import annoy
+import sklearn
+import kymatio
+import time
+from sklearn.metrics import f1_score
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import label_binarize
+from scipy.io import loadmat
+from scipy.special import softmax
+from abc import ABCMeta, abstractmethod
+import torch.nn.functional as F
+import heapq
+from scipy.sparse import csr_matrix
+from sklearn.feature_extraction.image import extract_patches_2d
+from scipy.ndimage import gaussian_filter
+import os, glob
+from sklearn.decomposition import PCA as sklearn_pca
+from scipy.ndimage.morphology import distance_transform_edt
+import pandas as pd
+import argparse
+import scipy.io
+from typing import Optional, List, Dict, Tuple
+from sklearn.preprocessing import LabelEncoder
+
 
 def _process_data(data, labels):
     """ Ensures that the data and labels are of the correct type and have the same indexing to
@@ -53,7 +82,7 @@ def get_MNIST_data(num_points=None, random_state=None):
 
     return _process_data(X.reset_index(drop=True) / factor, y.reset_index(drop=True))
 
-
+'''
 def get_CIFAR10_data(num_points=None, random_state=None):
     """ Read in file from https://www.cs.toronto.edu/~kriz/cifar.html """
     _random_state = _set_random_state(random_state)
@@ -73,6 +102,51 @@ def get_CIFAR10_data(num_points=None, random_state=None):
             y = [y[idx] for idx in idx_list]
 
         return _process_data(X / factor, y)
+'''
+
+def get_CIFAR10_data():
+    X, y = gl.datasets.load('cifar', metric='aet', labels_only= False)
+    return _process_data(X,y)
+
+
+def get_FASHIONMNIST_data():
+    X, y = gl.datasets.load('fashionmnist', metric='vae', labels_only= False)
+    return _process_data(X,y)
+
+def get_Satellite_data():
+    X =   np.loadtxt('data/data_satellite.txt', usecols=range(36))
+    labels = np.loadtxt('data/ground_truth_satellite.txt', usecols=range(1)) # gl.load_labels('optdigits')
+    labels = labels.astype(int)
+    unique_labels = list(np.unique(labels))
+    return _process_data(X,labels)
+
+def get_USPS_data():
+    X =   np.loadtxt('data/data_usps.txt', usecols=range(256))
+    labels = np.loadtxt('data/ground_truth_usps.txt', usecols=range(1)) # gl.load_labels('optdigits')
+    labels = labels.astype(int)
+    unique_labels = list(np.unique(labels))
+    return _process_data(X,labels)
+    #return X, labels
+
+
+def get_COIL20_data():
+    X =   np.loadtxt('data/data_coil20.txt', usecols=range(1024))
+    labels = np.loadtxt('data/ground_truth_coil20.txt', usecols=range(1)) # gl.load_labels('optdigits')
+    labels = labels.astype(int)
+    unique_labels = list(np.unique(labels))
+    return _process_data(X,labels)
+
+
+def get_OPTDIGITS_data():
+    X =   np.loadtxt('data/data_optdigits.txt', usecols=range(64))
+    labels = np.loadtxt('data/ground_truth_optdigits.txt', usecols=range(1)) # gl.load_labels('optdigits')
+    labels = labels.astype(int)
+    unique_labels = list(np.unique(labels))
+    return _process_data(X,labels)
+
+    
+
+
 
 
 

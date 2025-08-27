@@ -1,30 +1,30 @@
 import sklearn
 import numpy as np
 import pandas as pd
-from HelperFunctions import Plots
+from HelperFunctions import Plots, AdjacencyMatrices
 
-class EuclideanAccuracy: # 1nn algorithm using euclidean distance
-    def __init__(self, sampling_model, oracle, create_plots=False):
-        self.model = sampling_model
+class EuclideanAccuracy:
+    def __init__(self, unlabeled_points, query_indices, oracle, create_plots=False):
+        self.unlabeled_points = unlabeled_points
+        self.query_indices = query_indices
         self.oracle = oracle
 
-        self.labeled_points = self.model.unlabeled_points.iloc[self.model.query_indices]
-        self.queried_unlabeled_points = self.model.unlabeled_points.drop(index=self.model.query_indices)
-        self.labels = pd.Series(self.oracle[self.labeled_points.index], index=self.model.query_indices)
+        self.labeled_points = self.unlabeled_points.iloc[self.query_indices]
+        self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
+        self.labels = pd.Series(self.oracle[self.labeled_points.index], index=self.query_indices)
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
 
         if create_plots:
-            title = f'{self.model}'
-            Plots.plot_data(self.model.unlabeled_points, self.labeled_points, self.oracle,
+            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,
                             self.labels, predicted_labels)
-            Plots.plot_confusion_matrix(confusion_matrix, title)
+            Plots.plot_confusion_matrix(confusion_matrix, title=None)
 
     def __apply_KNN(self):
         from sklearn.neighbors import KNeighborsClassifier
         knn = KNeighborsClassifier(n_neighbors=1)
         knn.fit(self.labeled_points, self.labels)
-        predicted_labels = knn.predict(self.model.unlabeled_points)
+        predicted_labels = knn.predict(self.unlabeled_points)
         return predicted_labels
 
     def _calculate_score(self):
@@ -34,28 +34,28 @@ class EuclideanAccuracy: # 1nn algorithm using euclidean distance
         return predicted_labels, cm, accuracy
 
 
-class GraphMetricAccuracy: # 1nn using graph metric
-    def __init__(self, model, oracle, create_plots=False):
-        self.model = model
+class GraphMetricAccuracy:
+    def __init__(self, unlabeled_points, query_indices, oracle, radius=1.0, create_plots=False):
+        self.unlabeled_points = unlabeled_points
+        self.query_indices = query_indices
         self.oracle = oracle
+        self._radius = radius
 
-        self.labeled_points = self.model.unlabeled_points.iloc[self.model.query_indices]
-        self.labels = pd.Series(self.oracle[self.model.query_indices], index=self.model.query_indices)
-        self.queried_unlabeled_points = self.model.unlabeled_points.drop(index=self.model.query_indices)
+        self.labeled_points = self.unlabeled_points.iloc[self.query_indices]
+        self.labels = pd.Series(self.oracle[self.query_indices], index=self.query_indices)
+        self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
 
         if create_plots:
-            title = f'{self.model}'
-            self.plot_data(predicted_labels)
-            Plots.plot_confusion_matrix(confusion_matrix, title)
+            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,
+                            self.labels, predicted_labels)
+            Plots.plot_confusion_matrix(confusion_matrix, title=None)
 
     def __graph_predict(self):
         from scipy.sparse.csgraph import dijkstra
-        from scipy.spatial.distance import squareform, pdist
 
-        distance_matrix = squareform(pdist(self.model.unlabeled_points, metric='sqeuclidean'))
-        distance_matrix[distance_matrix > 1.5] = np.inf
+        distance_matrix = AdjacencyMatrices().sparse_distance_matrix(self.unlabeled_points, self._radius, metric='sqeuclidean')
         self.weighted_adj_matrix = dijkstra(distance_matrix, indices=self.labeled_points.index, directed=False)
 
         # separate the points into connected and disconnected components
@@ -66,8 +66,10 @@ class GraphMetricAccuracy: # 1nn using graph metric
         closest_labeled_pt_indices = np.argmin(self.weighted_adj_matrix, axis=0)
         predicted_labels = np.array([self.labels[self.labeled_points.index[idx]] for idx in closest_labeled_pt_indices])
 
-        # label the disconnected points based on the connected points
-        projection_indices = np.argmin(distance_matrix[np.ix_(non_inf_indices, self.inf_indices)], axis=0)
+        # label the disconnected points based on the closest connected points
+        projection_indices = np.ravel(np.argmin(distance_matrix[np.ix_(non_inf_indices, self.inf_indices)], axis=0))
+        # np.ravel flattens projection_indices from 2 dimensions to 1
+
         predicted_labels[self.inf_indices] = predicted_labels[non_inf_indices][projection_indices]
 
         return predicted_labels

@@ -174,11 +174,13 @@ class ConnectedComponentSampling:
         if query_indices is None:
             query_indices = ProbCoverSampling(component_data,
                                               budget=component_budget,
-                                              adjacency_matrix=sub_adjacency_matrix).query_indices
+                                              adjacency_matrix=sub_adjacency_matrix,
+                                              random_state=self._random_state).query_indices
         else:
             new_query_indices = ProbCoverSampling(component_data,
                                                   budget=component_budget,
-                                                  adjacency_matrix=sub_adjacency_matrix).query_indices
+                                                  adjacency_matrix=sub_adjacency_matrix,
+                                                  random_state=self._random_state).query_indices
             query_indices = np.append(query_indices, new_query_indices)
 
         return query_indices

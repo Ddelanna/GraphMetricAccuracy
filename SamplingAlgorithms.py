@@ -69,6 +69,7 @@ class ProbCoverSampling:
         self.unlabeled_points = unlabeled_points
         self.budget = budget
         self.adjacency_matrix = adjacency_matrix
+        self._random_state = _set_random_state(random_state)
 
         self.query_indices = self._get_query_indices()
 
@@ -100,7 +101,7 @@ class ProbCoverSampling:
             # check if all data points have been removed from unlabeled pool
             if most_outgoing_edges == 0:
                 print('USER WARNING: Under-utilization of budget.')
-                query_idx = np.random.choice(np.setdiff1d(self.unlabeled_points.index, query_indices))
+                query_idx = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices))
 
             # add the index of the data point with the most out-going edges
             query_indices.append(query_idx)

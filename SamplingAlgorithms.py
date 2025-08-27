@@ -100,7 +100,7 @@ class ProbCoverSampling:
             # check if all data points have been removed from unlabeled pool
             if most_outgoing_edges == 0:
                 print('USER WARNING: Under-utilization of budget.')
-                break
+                query_idx = np.random.choice(np.setdiff1d(self.unlabeled_points.index, query_indices))
 
             # add the index of the data point with the most out-going edges
             query_indices.append(query_idx)
@@ -199,7 +199,6 @@ class ConnectedComponentSampling:
         self.n_components, self.component_labels, self.component_sizes = self._find_connected_components()
         self.component_budgets = self._allot_component_budgets()
         self.query_indices = self._apply_probcover()
-
 
 
 

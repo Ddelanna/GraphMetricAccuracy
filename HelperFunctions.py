@@ -73,6 +73,11 @@ class Plots:
 
 
 class AdjacencyMatrices:
+    def sparse_distance_matrix(self, data, radius, metric='euclidean'):
+        from scipy.sparse import csc_matrix
+        distance_matrix = self.binary_epsilon_graph(data, radius, metric)
+        return csc_matrix(distance_matrix)
+
     @staticmethod
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist

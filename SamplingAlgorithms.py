@@ -73,10 +73,19 @@ class ProbCoverSampling:
         self.query_indices = self._get_query_indices()
 
     def __update_edges(self, query_idx):
-        """ multiplying the query_idx column by the repulsion factor
-            so that edges.sum() has less weight in the vertices that share an edge with the query_idx vertex """
-        edges_query_idx = np.where(self.unlabeled_points.index == query_idx)[0][0]  # corresponding index on self.adjacency_matrix
-        self.adjacency_matrix[:, np.where(self.adjacency_matrix[edges_query_idx] == 1)] *= 0
+        """ multiplying the query_idx column by 0 so that edges.sum() has less weight in the
+        vertices that share an edge with the query_idx vertex """
+        # get the corresponding index on self.adjacency_matrix to the query index on self.unlabeled_points
+        adjacency_query_idx = np.where(self.unlabeled_points.index == query_idx)[0][0]
+
+        # remove all outgoing edges of the labeled point AND all of its surrounding points
+        from scipy.sparse import issparse
+        if issparse(self.adjacency_matrix):
+            neighboring_point_indices = self.adjacency_matrix.getcol(adjacency_query_idx).indices
+            self.adjacency_matrix[:, neighboring_point_indices] *= 0
+        else:
+            neighboring_point_indices = np.where(self.adjacency_matrix[adjacency_query_idx] == 1)
+            self.adjacency_matrix[:, neighboring_point_indices] *= 0
 
     def _get_query_indices(self):
         """ Iteratively picks the point with the highest number of outgoing edges
@@ -98,7 +107,7 @@ class ProbCoverSampling:
 
             self.__update_edges(query_idx)
 
-        return np.array(query_indices)
+        return query_indices
 
 
 class ConnectedComponentSampling:

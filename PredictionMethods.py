@@ -4,12 +4,12 @@ import pandas as pd
 from HelperFunctions import Plots, AdjacencyMatrices
 
 class EuclideanAccuracy:
-    def __init__(self, unlabeled_points, query_indices, oracle, create_plots=False):
+    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, create_plots=False):
         self.unlabeled_points = unlabeled_points
         self.query_indices = query_indices
         self.oracle = oracle
 
-        self.labeled_points = self.unlabeled_points.iloc[self.query_indices]
+        self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
         self.labels = pd.Series(self.oracle[self.labeled_points.index], index=self.query_indices)
 
@@ -41,7 +41,7 @@ class GraphMetricAccuracy:
         self.oracle = oracle
         self._radius = radius
 
-        self.labeled_points = self.unlabeled_points.iloc[self.query_indices]
+        self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.labels = pd.Series(self.oracle[self.query_indices], index=self.query_indices)
         self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
 
@@ -55,8 +55,10 @@ class GraphMetricAccuracy:
     def __graph_predict(self):
         from scipy.sparse.csgraph import dijkstra
 
-        distance_matrix = AdjacencyMatrices().sparse_distance_matrix(self.unlabeled_points, self._radius, metric='sqeuclidean')
-        self.weighted_adj_matrix = dijkstra(distance_matrix, indices=self.labeled_points.index, directed=False)
+        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='sqeuclidean')
+        distance_matrix[distance_matrix > self._radius] = np.inf
+        indices = [self.unlabeled_points.index.get_loc(label) for label in list(self.labeled_points.index)]
+        self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)
 
         # separate the points into connected and disconnected components
         self.inf_indices = np.isinf(self.weighted_adj_matrix).all(axis=0)

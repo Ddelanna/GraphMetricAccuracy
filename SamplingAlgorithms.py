@@ -1,7 +1,6 @@
 import os
 os.environ['OMP_NUM_THREADS'] = '4'
 
-import heapq
 import numpy as np
 from HelperFunctions import _set_random_state
 
@@ -43,7 +42,7 @@ class KmeansSampling:
             dists_per_candidate.append(candidate_distance)
         min_MSE_idx = np.argmin(MSE_per_candidate)
         best_sample_point = candidates_samples_indices[min_MSE_idx]
-        dists = dists_per_candidate[min_MSE_idx]
+        dists = dists_per_candidate[min_MSE_idx] ** 2
 
         return best_sample_point, dists
 
@@ -90,9 +89,10 @@ class ProbCoverSampling:
         query_indices = []
 
         for _ in range(self.budget):
+            from heapq import nlargest
             # find the index of the row in self.edges with the most 1s
             num_outgoing_edges = self.adjacency_matrix.sum(axis=1) # sum of rows
-            most_outgoing_edges, query_idx = heapq.nlargest(1, zip(num_outgoing_edges, self.unlabeled_points.index))[0]
+            most_outgoing_edges, query_idx = nlargest(1, zip(num_outgoing_edges, self.unlabeled_points.index))[0]
 
             # check if all data points have been removed from unlabeled pool
             if most_outgoing_edges == 0:
@@ -168,15 +168,15 @@ class ConnectedComponentSampling:
 
         return component_budgets
 
-    def __update_query_indices(self, query_indices, component_data, component_budget):
-        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data.index, component_data.index)]
+    def __update_query_indices(self, query_indices, component_data_indices, component_budget):
+        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data_indices, component_data_indices)]
 
         if query_indices is None:
-            query_indices = ProbCoverSampling(component_data,
+            query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
                                               budget=component_budget,
                                               adjacency_matrix=sub_adjacency_matrix).query_indices
         else:
-            new_query_indices = ProbCoverSampling(component_data,
+            new_query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
                                                   budget=component_budget,
                                                   adjacency_matrix=sub_adjacency_matrix).query_indices
             query_indices = np.append(query_indices, new_query_indices)
@@ -187,12 +187,11 @@ class ConnectedComponentSampling:
         """ Split the data based on connected component and use ProbCover to determine which points to label
             within each component. """
 
-        data_by_component = [self.unlabeled_points[self.component_labels == label] for label in range(self.n_components)]
-
         query_indices = None
-        for idx in range(self.n_components):
-            if self.component_budgets[idx] != 0:
-                query_indices = self.__update_query_indices(query_indices, data_by_component[idx], self.component_budgets[idx])
+        for label in range(self.n_components):
+            if self.component_budgets[label] != 0:
+                component_data_indices = np.where(self.component_labels == label)[0]
+                query_indices = self.__update_query_indices(query_indices, component_data_indices, self.component_budgets[label])
 
         return query_indices
 

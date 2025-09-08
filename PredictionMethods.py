@@ -10,8 +10,8 @@ class EuclideanAccuracy:
         self.oracle = oracle
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
+        self.labels = self.oracle[self.labeled_points.index]
         self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
-        self.labels = pd.Series(self.oracle[self.labeled_points.index], index=self.query_indices)
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
 
@@ -42,7 +42,7 @@ class GraphMetricAccuracy:
         self._radius = radius
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
-        self.labels = pd.Series(self.oracle[self.query_indices], index=self.query_indices)
+        self.labels = self.oracle[self.query_indices]
         self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
@@ -57,7 +57,7 @@ class GraphMetricAccuracy:
 
         distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='sqeuclidean')
         distance_matrix[distance_matrix > self._radius] = np.inf
-        indices = [self.unlabeled_points.index.get_loc(label) for label in list(self.labeled_points.index)]
+        indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices]
         self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)
 
         # separate the points into connected and disconnected components

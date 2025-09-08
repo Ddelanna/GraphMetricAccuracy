@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 import graphlearning as gl
-import time
 
 
 def _set_random_state(random_state):
@@ -73,23 +72,23 @@ class Plots:
 
 
 class AdjacencyMatrices:
-    def sparse_distance_matrix(self, data, radius, metric='euclidean'):
-        from scipy.sparse import csc_matrix
-        distance_matrix = self.binary_epsilon_graph(data, radius, metric)
-        return csc_matrix(distance_matrix)
-
     @staticmethod
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist
         distance_matrix = squareform(pdist(data, metric=metric))
         return distance_matrix
 
-    def knn_graph(self, data, k=1, metric='euclidean'):
+    @staticmethod
+    def knn_graph(data, k=1, metric='euclidean'):
         return gl.weightmatrix.knn(data, k=k, kernel='distance', similarity=metric)
 
-    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean'):
+    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
         distance_matrix = self.distance_matrix(data, metric=metric)
-        return (distance_matrix <= radius).astype(int)
+        binary_epsilon_graph = (distance_matrix <= radius).astype(int)
+        if sparse:
+            from scipy.sparse import csc_matrix
+            return csc_matrix(binary_epsilon_graph)
+        return binary_epsilon_graph
 
     def weighted_epsilon_graph(self, data, radius=1.0, metric='euclidean'):
         if metric == 'graph_euclidean' or metric == 'graph_sqeuclidean':
@@ -102,17 +101,7 @@ class AdjacencyMatrices:
 
         return weighted_adj_matrix
 
-    # todo : combine with distance_matrix()?
-    def compute_distance(self, W, boundary_set, distance_type='peikonal'):
-        if distance_type == 'peikonal':
-            return gl.graph(W).peikonal(bdy_set=boundary_set, p=1)
-        elif distance_type == 'euclidean':
-            return W
-        elif 'fermat' in distance_type:  # distance_type should be in the format 'fermatp' (e.g. 'fermat2')
-            p = int(distance_type[6:]) # drop 'fermat'
-            return gl.graph(W**p).dijkstra(bdy_set=boundary_set, bdy_val=0)
-        else:
-            raise ValueError(f"Unsupported distance method: {distance_type}")
+
 
 
 

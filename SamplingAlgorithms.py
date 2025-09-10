@@ -6,12 +6,12 @@ from HelperFunctions import _set_random_state
 
 
 class RandomSampling:
-    def __init__(self, unlabeled_points, budget, random_state=None):
+    def __init__(self, unlabeled_points, budget, graph_repr=None, random_state=None):
         self.unlabeled_points = unlabeled_points
         self.budget = budget
 
         _random_state = _set_random_state(random_state)
-        self.query_indices = _random_state.choice(self.unlabeled_points.index, budget)
+        self.query_indices = _random_state.choice(self.unlabeled_points.index, budget, replace=False)
 
 
 class KmeansSampling:
@@ -96,13 +96,14 @@ class ProbCoverSampling:
 
             # check if all data points have been removed from unlabeled pool
             if most_outgoing_edges == 0:
-                # print('USER WARNING: Under-utilization of budget.')
-                random_query_indices = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices),
-                                                      size=self.budget-len(query_indices),
-                                                      replace=False)
-                query_indices = np.concatenate((query_indices, random_query_indices))
-                return query_indices
-
+                try:
+                    random_query_indices = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices),
+                                                          size=self.budget-len(query_indices),
+                                                          replace=False)
+                    query_indices = np.concatenate((query_indices, random_query_indices))
+                    return query_indices
+                except ValueError:
+                    raise f'USER WARNING: Under-utilization of budget.'
             # add the index of the data point with the most out-going edges
             query_indices.append(query_idx)
 

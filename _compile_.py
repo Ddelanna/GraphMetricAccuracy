@@ -37,7 +37,7 @@ class Iterate:
         elif graph_method == 'epsilon':
             return AM().binary_epsilon_graph(data, radius=radius, metric=metric)
         elif graph_method == 'knn':
-            return AM().knn_graph(data, k=1, metric=metric)
+            return AM().knn_graph(data, k=10, metric=metric)
         else:
             return None
 

@@ -10,11 +10,11 @@ def _process_data(data, labels, num_points, random_state):
         make querying easier later on. """
     _random_state = _set_random_state(random_state)
 
+    labels = pd.Series(labels, index=np.arange(data.shape[0]))
+
     data = pd.DataFrame(data, index=np.arange(data.shape[0]))
     data['query index'] = labels.index
     data.set_index('query index', inplace=True)
-
-    labels = pd.Series(labels, index=np.arange(data.shape[0]))
 
     if num_points is not None:
         idx_list = _random_state.choice(range(data.shape[0]), num_points, replace=False)
@@ -45,6 +45,7 @@ def create_spiral_data(num_points, dimension=2, random_state=None):
         X = np.append(X, noise, axis=1)
 
     return _process_data(X, y, None, random_state)
+
 
 
 def get_MNIST_data(num_points=None, random_state=None):

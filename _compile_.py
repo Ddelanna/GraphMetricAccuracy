@@ -8,13 +8,16 @@ from joblib import Parallel, delayed
 
 class Iterate:
     def __init__(self):
-        self.num_points = 200  # num_points = None gets the entire data set
-        self.num_iters = 2
-        self.data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
+        self._num_points = 200  # num_points = None gets the entire data set
+        self._num_iters = 2 # number of runs to average the score over
+        self._data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
+        self._budgets = [10, 20, 30]
+        
+        self._search_grid = self.build_search_grid()
 
-        self.main()
+        self.create_score_csv()
 
-    def _build_search_grid(self):
+    def build_search_grid(self):
         import itertools
 
         query_models = [(RandomSampling, None),
@@ -23,15 +26,13 @@ class Iterate:
                   (ProbCoverSampling, 'knn'),
                   (ConnectedComponentSampling, 'epsilon'),
                   (ConnectedComponentSampling, 'knn')]
-
-        budget = [10, 20, 30]
         metric = ['2fermat', '1fermat', 'euclidean']
-
         prediction_models = [GraphMetricAccuracy, EuclideanAccuracy]
 
-        return list(itertools.product(query_models, budget, metric, prediction_models))
+        return list(itertools.product(query_models, self._budgets, metric, prediction_models))
 
-    def _build_graph(self, data, graph_method, metric, radius=None):
+    @staticmethod
+    def __build_graph(data, graph_method, metric, radius=None):
         if graph_method == 'full':
             return AM().full_graph(data, metric=metric)
         elif graph_method == 'epsilon':
@@ -41,30 +42,25 @@ class Iterate:
         else:
             return None
 
-    def _compute_score(self, query_model, graph_method, data_generator, budget, metric, prediction_model):
-
+    def __compute_score(self, data_generator, budget, metric, graph_method, query_model, prediction_model):
         scores, computation_times = [], []
-        for seed in range(1, self.num_iters + 1):
-            data, oracle = data_generator[0](self.num_points, random_state=seed)
+        for seed in range(1, self._num_iters + 1):
+            data, oracle = data_generator[0](self._num_points, random_state=seed)
 
             start_time = time.time()
+
             radius = BestParameter(data, budget, metric).best_radius(alpha=0.95) # todo: radius not always necessary
-
-            graph = self._build_graph(data, graph_method, metric, radius=radius)
+            graph = self.__build_graph(data, graph_method, metric, radius=radius)
             query_indices = query_model(data, budget, graph, random_state=seed).query_indices
+            scores.append(prediction_model(data, query_indices, oracle, radius=radius, metric=metric).score * 100)
 
-            p = 1
-            if metric == '2fermat':
-                p = 2
-
-            scores.append(prediction_model(data, query_indices, oracle, fermat_p=p, radius=radius).score * 100)
             computation_times.append(time.time() - start_time)
 
         return np.round(np.average(scores), 3), np.round(np.average(computation_times), 3)
 
-    def get_new_data_point(self, query_model, graph_method, data_generator, budget, metric, prediction_model):
-        average_score, average_computation_time = self._compute_score(query_model, graph_method, data_generator,
-                                                                      budget, metric, prediction_model)
+    def _get_new_data_point(self, data_generator, budget, metric, graph_method, query_model, prediction_model):
+        average_score, average_computation_time = self.__compute_score(data_generator, budget, metric, graph_method,
+                                                                       query_model, prediction_model)
 
         new_data_point = pd.DataFrame([{'Budget': budget,
                                         'Score': average_score,
@@ -77,15 +73,15 @@ class Iterate:
 
         return new_data_point
 
-    def main(self):
+    def create_score_csv(self):
         start_time = time.time()
-        for data_generator in self.data_generators:
+        for data_generator in self._data_generators:
             score_df = pd.DataFrame(columns=['Budget', 'Score', 'Metric', 'Graph Type', 'Sampling Model',
                                               'Prediction Method', 'Computation Time'])
 
             scores = Parallel(n_jobs=-1)(
-                delayed(self.get_new_data_point)(query_model, graph_method, data_generator, budget, metric, prediction_model)
-                for (query_model, graph_method), budget, metric, prediction_model in self._build_search_grid()
+                delayed(self._get_new_data_point)(query_model, graph_method, data_generator, budget, metric, prediction_model)
+                for (query_model, graph_method), budget, metric, prediction_model in self._search_grid
             )
             for data_point in scores:
                 score_df = pd.concat([score_df, data_point])

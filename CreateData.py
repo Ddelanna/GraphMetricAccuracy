@@ -47,11 +47,10 @@ def create_spiral_data(num_points, dimension=2, random_state=None):
     return _process_data(X, y, None, random_state)
 
 
-
 def get_MNIST_data(num_points=None, random_state=None):
     """ Read in csv files from https://www.kaggle.com/datasets/oddrationale/mnist-in-csv?resource=download. """
 
-    mnist_train = pd.read_csv('MNIST-data/mnist_train.csv')
+    mnist_train = pd.read_csv('data/MNIST-data/mnist_train.csv')
     X, y = mnist_train.drop(labels='label', axis=1), mnist_train['label']
     factor = 28 * 255  # 28x28 pixel image with grayscale 0-255
 

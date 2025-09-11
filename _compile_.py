@@ -12,7 +12,7 @@ class Iterate:
         self._num_iters = 2 # number of runs to average the score over
         self._data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
         self._budgets = [10, 20, 30]
-        
+
         self._search_grid = self.build_search_grid()
 
         self.create_score_csv()
@@ -29,7 +29,7 @@ class Iterate:
         metric = ['2fermat', '1fermat', 'euclidean']
         prediction_models = [GraphMetricAccuracy, EuclideanAccuracy]
 
-        return list(itertools.product(query_models, self._budgets, metric, prediction_models))
+        return list(itertools.product(self._data_generators, self._budgets, metric, query_models, prediction_models))
 
     @staticmethod
     def __build_graph(data, graph_method, metric, radius=None):
@@ -80,8 +80,8 @@ class Iterate:
                                               'Prediction Method', 'Computation Time'])
 
             scores = Parallel(n_jobs=-1)(
-                delayed(self._get_new_data_point)(query_model, graph_method, data_generator, budget, metric, prediction_model)
-                for (query_model, graph_method), budget, metric, prediction_model in self._search_grid
+                delayed(self._get_new_data_point)(data_generator, budget, metric, graph_method, query_model, prediction_model)
+                for data_generator, budget, metric, (query_model, graph_method), prediction_model in self._search_grid
             )
             for data_point in scores:
                 score_df = pd.concat([score_df, data_point])

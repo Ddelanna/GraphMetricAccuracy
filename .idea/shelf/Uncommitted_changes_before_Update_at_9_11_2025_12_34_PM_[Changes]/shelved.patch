@@ -1,0 +1,1044 @@
+Index: example.py
+===================================================================
+diff --git a/example.py b/example.py
+deleted file mode 100644
+--- a/example.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ /dev/null	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
+@@ -1,31 +0,0 @@
+-import time
+-
+-import CreateData
+-import HelperFunctions
+-import PredictionMethods
+-import SamplingAlgorithms
+-import temp
+-from HelperFunctions import AdjacencyMatrices
+-from temp import *
+-
+-
+-
+-
+-if __name__ == '__main__':
+-    # todo: fix AdjacencyMatrices
+-    # todo: record runtimes for creating distance / adjacency matrices and for the algorithm
+-
+-
+-    data, oracle = CreateData.create_spiral_data(10000)
+-    dist1 = AdjacencyMatrices().sparse_distance_matrix(data, 1.5)
+-    dist2 = AdjacencyMatrices().binary_epsilon_graph(data, 1.5)
+-
+-    time1 = time.time()
+-    print(SamplingAlgorithms.ConnectedComponentSampling(data, 6, dist1, random_state=1).query_indices)
+-    time2 = time.time()
+-
+-    print(SamplingAlgorithms.ConnectedComponentSampling(data, 6, dist2, random_state=1).query_indices)
+-    time3 = time.time()
+-    print(time3-time2, time2-time1)
+-
+-
+Index: RUN_ME.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/RUN_ME.py b/RUN_ME.py
+new file mode 100644
+--- /dev/null	(date 1757534508923)
++++ b/RUN_ME.py	(date 1757534508923)
+@@ -0,0 +1,46 @@
++import time
++import CreateData
++import HelperFunctions
++import PredictionMethods
++import SamplingAlgorithms
++from HelperFunctions import AdjacencyMatrices
++import graphlearning as gl
++from _temporary_ import *
++from _compile_ import Iterate
++
++if __name__ == '__main__':
++    # completed: made all methods able to take in sparse/dense and a fixed seed
++    # completed? verified the models
++    # completed: improved run time for kmeans
++    # completed: compilation of results
++    # completed: record the run times
++    # completed: reinstated method to find radius
++    # completed: made compilation function parallel
++    # in progress: learning how to use github on pycharm
++    # in progress: updating the documentation
++
++    # todo: change prediction method to take in different combinations of metrics
++    # todo: for kmeans, the distance is always euclidean
++    # todo: for knn, the distance is always euclidean
++    # todo: radius is always computed regardless if it is needed or not
++    # todo: check if other processes can be made parallel?
++    # todo: how to find best knn value?
++
++    # data, oracle = CreateData.get_MNIST_data(1000, random_state=1)
++    # dist_mat = AdjacencyMatrices.distance_matrix(data)
++    #
++    # time1 = time.time()
++    # _, query_indices = adaptive_sampling(np.array(data), oracle, dist_mat, 10, random_state=1)
++    # time2 = time.time()
++    # query_indices2 = SamplingAlgorithms.KmeansSampling(data, 10, gl.graph(dist_mat), random_state=1).query_indices
++    # time3 = time.time()
++    # accuracy = PredictionMethods.GraphMetricAccuracy(data, query_indices2, oracle, radius=0.25).score
++    # accuracy2 = PredictionMethods.EuclideanAccuracy(data, query_indices2, oracle, radius=0.25).score
++    #
++    # print('Accuracy:', accuracy, accuracy2)
++    # print('old', time2-time1, 'new', time3-time2)
++
++    Iterate()
++
++
++
+Index: SamplingAlgorithms.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import os\r\nos.environ['OMP_NUM_THREADS'] = '4'\r\n\r\nimport numpy as np\r\nfrom HelperFunctions import _set_random_state\r\n\r\n\r\nclass RandomSampling:\r\n    def __init__(self, unlabeled_points, budget, random_state=None):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.budget = budget\r\n\r\n        _random_state = _set_random_state(random_state)\r\n        self.query_indices = _random_state.choice(self.unlabeled_points.index, budget)\r\n\r\n\r\nclass KmeansSampling:\r\n    def __init__(self, unlabeled_points, budget, graph_repr, random_state=None, n_local_trials=None):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.budget = budget\r\n        self.graph = graph_repr\r\n\r\n        self._random_state = _set_random_state(random_state)\r\n        if n_local_trials is None:\r\n            self._n_local_trials = 3 + int(np.log(budget))\r\n        else:\r\n            self._n_local_trials = n_local_trials\r\n\r\n        self.query_indices = self._get_query_indices()\r\n\r\n    def __find_best_sample_point(self, query_indices, dists):\r\n        rand_vals = self._random_state.uniform(size=self._n_local_trials) * np.sum(dists)\r\n        from sklearn.utils.extmath import stable_cumsum\r\n        candidates_samples_indices = np.searchsorted(stable_cumsum(dists), rand_vals)\r\n        np.clip(candidates_samples_indices, None, dists.size-1, out=candidates_samples_indices)\r\n\r\n        MSE_per_candidate = []  # mean squared error per candidate\r\n        dists_per_candidate = []\r\n        for candidate_sample_idx in candidates_samples_indices:\r\n            candidate_distance = self.graph.dijkstra(bdy_set=query_indices + [candidate_sample_idx], bdy_val=0)\r\n            MSE_per_candidate.append(np.sum(candidate_distance))\r\n            dists_per_candidate.append(candidate_distance)\r\n        min_MSE_idx = np.argmin(MSE_per_candidate)\r\n        best_sample_point = candidates_samples_indices[min_MSE_idx]\r\n        dists = dists_per_candidate[min_MSE_idx] ** 2\r\n\r\n        return best_sample_point, dists\r\n\r\n    def _get_query_indices(self):\r\n        query_indices = [self._random_state.choice(self.unlabeled_points.shape[0])] # initialize query_indices\r\n\r\n        dists = self.graph.dijkstra(bdy_set=query_indices)\r\n        for _ in range(1, self.budget):\r\n            best_sample_point_idx, dists = self.__find_best_sample_point(query_indices, dists)\r\n            query_indices.append(best_sample_point_idx)\r\n\r\n        return [self.unlabeled_points.index[idx] for idx in query_indices]\r\n\r\n\r\nclass ProbCoverSampling:\r\n    def __init__(self, unlabeled_points, budget, adjacency_matrix=None, random_state=None):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.budget = budget\r\n        self.adjacency_matrix = adjacency_matrix\r\n        self._random_state = _set_random_state(random_state)\r\n\r\n        self.query_indices = self._get_query_indices()\r\n\r\n    def __update_edges(self, query_idx):\r\n        \"\"\" multiplying the query_idx column by 0 so that edges.sum() has less weight in the\r\n        vertices that share an edge with the query_idx vertex \"\"\"\r\n\r\n        # get the corresponding index on self.adjacency_matrix to the query index on self.unlabeled_points\r\n        adjacency_query_idx = np.where(self.unlabeled_points.index == query_idx)[0][0]\r\n\r\n        # get the indices of all the neighboring points to the query point (including the query point itself)\r\n        from scipy.sparse import issparse\r\n        if issparse(self.adjacency_matrix):\r\n            neighboring_point_indices = self.adjacency_matrix.getcol(adjacency_query_idx).indices\r\n        else:\r\n            neighboring_point_indices = np.where(self.adjacency_matrix[adjacency_query_idx] == 1)\r\n\r\n        # remove all outgoing edges of the neighboring points\r\n        self.adjacency_matrix[:, neighboring_point_indices] *= 0\r\n\r\n    def _get_query_indices(self):\r\n        \"\"\" Iteratively picks the point with the highest number of outgoing edges\r\n        (i.e. finds the row in self.edges with the highest number of 1s) \"\"\"\r\n        query_indices = []\r\n\r\n        for _ in range(self.budget):\r\n            from heapq import nlargest\r\n            # find the index of the row in self.edges with the most 1s\r\n            num_outgoing_edges = self.adjacency_matrix.sum(axis=1) # sum of rows\r\n            most_outgoing_edges, query_idx = nlargest(1, zip(num_outgoing_edges, self.unlabeled_points.index))[0]\r\n\r\n            # check if all data points have been removed from unlabeled pool\r\n            if most_outgoing_edges == 0:\r\n                # print('USER WARNING: Under-utilization of budget.')\r\n                random_query_indices = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices),\r\n                                                      size=self.budget-len(query_indices),\r\n                                                      replace=False)\r\n                query_indices = np.concatenate((query_indices, random_query_indices))\r\n                return query_indices\r\n\r\n            # add the index of the data point with the most out-going edges\r\n            query_indices.append(query_idx)\r\n\r\n            self.__update_edges(query_idx)\r\n\r\n        return query_indices\r\n\r\n\r\nclass ConnectedComponentSampling:\r\n    def __init__(self, unlabeled_points, budget, adjacency_matrix=None, random_state=None):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.budget = budget\r\n        self.adjacency_matrix = adjacency_matrix\r\n\r\n        self._random_state = _set_random_state(random_state)\r\n\r\n        self._run_algorithm()\r\n\r\n    def _find_connected_components(self):\r\n        \"\"\" :return n_components: number of connected components of the graph\r\n            :return component_labels: corresponding connected component label of each data point\r\n            :return component_sizes: number of data points in each connected component in order of their component label \"\"\"\r\n\r\n        from scipy.sparse.csgraph import connected_components\r\n        n_components, component_labels = connected_components(csgraph=self.adjacency_matrix, directed=False,\r\n                                                              return_labels=True)\r\n        _, component_sizes = np.unique(component_labels, return_counts=True)\r\n\r\n        return n_components, component_labels, component_sizes\r\n\r\n    def __sample_from_largest_components(self):\r\n        \"\"\" While we are under budget, sample one point from the k largest connected components\r\n            until the connected components are too small \"\"\"\r\n\r\n        component_budgets = [0 for _ in range(self.n_components)]\r\n\r\n        ordered_components_by_size = sorted(zip(self.component_sizes, np.arange(self.n_components)), reverse=True)\r\n        for component_size, component_idx in ordered_components_by_size:\r\n            # keep going until the (clusters are too small) or until (budget is used up)\r\n            if (component_size <= 10) or (sum(component_budgets) == self.budget):\r\n                break\r\n            component_budgets[component_idx] += 1\r\n\r\n        return component_budgets\r\n\r\n    def _allot_component_budgets(self):\r\n        num_points = self.unlabeled_points.shape[0]\r\n\r\n        # ensure all large components have budget >= 1\r\n        component_budgets = self.__sample_from_largest_components()\r\n\r\n        # allot budget proportionally to component size\r\n        from math import floor\r\n        remaining_budget = self.budget - sum(component_budgets)\r\n        for idx in range(self.n_components):\r\n            component_budgets[idx] += floor(self.component_sizes[idx] / num_points * remaining_budget)\r\n\r\n        # if there is leftover budget, sample randomly proportional to size\r\n        if sum(component_budgets) < self.budget:\r\n            distribution = [self.component_sizes[idx] / num_points for idx in range(self.n_components)]\r\n            for _ in range(self.budget - sum(component_budgets)):\r\n                component_budgets[self._random_state.choice(np.arange(self.n_components), p=distribution)] += 1\r\n\r\n        return component_budgets\r\n\r\n    def __update_query_indices(self, query_indices, component_data_indices, component_budget):\r\n        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data_indices, component_data_indices)]\r\n\r\n        if query_indices is None:\r\n            query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],\r\n                                              budget=component_budget,\r\n                                              adjacency_matrix=sub_adjacency_matrix).query_indices\r\n        else:\r\n            new_query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],\r\n                                                  budget=component_budget,\r\n                                                  adjacency_matrix=sub_adjacency_matrix).query_indices\r\n            query_indices = np.append(query_indices, new_query_indices)\r\n\r\n        return query_indices\r\n\r\n    def _apply_probcover(self):\r\n        \"\"\" Split the data based on connected component and use ProbCover to determine which points to label\r\n            within each component. \"\"\"\r\n\r\n        query_indices = None\r\n        for label in range(self.n_components):\r\n            if self.component_budgets[label] != 0:\r\n                component_data_indices = np.where(self.component_labels == label)[0]\r\n                query_indices = self.__update_query_indices(query_indices, component_data_indices, self.component_budgets[label])\r\n\r\n        return query_indices\r\n\r\n    def _run_algorithm(self):\r\n        self.n_components, self.component_labels, self.component_sizes = self._find_connected_components()\r\n        self.component_budgets = self._allot_component_budgets()\r\n        self.query_indices = self._apply_probcover()\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/SamplingAlgorithms.py b/SamplingAlgorithms.py
+--- a/SamplingAlgorithms.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ b/SamplingAlgorithms.py	(date 1757519422334)
+@@ -6,12 +6,12 @@
+ 
+ 
+ class RandomSampling:
+-    def __init__(self, unlabeled_points, budget, random_state=None):
++    def __init__(self, unlabeled_points, budget, graph_repr=None, random_state=None):
+         self.unlabeled_points = unlabeled_points
+         self.budget = budget
+ 
+         _random_state = _set_random_state(random_state)
+-        self.query_indices = _random_state.choice(self.unlabeled_points.index, budget)
++        self.query_indices = _random_state.choice(self.unlabeled_points.index, budget, replace=False)
+ 
+ 
+ class KmeansSampling:
+@@ -96,13 +96,14 @@
+ 
+             # check if all data points have been removed from unlabeled pool
+             if most_outgoing_edges == 0:
+-                # print('USER WARNING: Under-utilization of budget.')
+-                random_query_indices = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices),
+-                                                      size=self.budget-len(query_indices),
+-                                                      replace=False)
+-                query_indices = np.concatenate((query_indices, random_query_indices))
+-                return query_indices
+-
++                try:
++                    random_query_indices = self._random_state.choice(np.setdiff1d(self.unlabeled_points.index, query_indices),
++                                                          size=self.budget-len(query_indices),
++                                                          replace=False)
++                    query_indices = np.concatenate((query_indices, random_query_indices))
++                    return query_indices
++                except ValueError:
++                    raise f'USER WARNING: Under-utilization of budget.'
+             # add the index of the data point with the most out-going edges
+             query_indices.append(query_idx)
+ 
+Index: HelperFunctions.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import matplotlib.pyplot as plt\r\nimport numpy as np\r\nimport sklearn\r\nimport graphlearning as gl\r\n\r\n\r\ndef _set_random_state(random_state):\r\n    if isinstance(random_state, int):\r\n        return np.random.default_rng(random_state)\r\n    return np.random.default_rng(np.random.random_integers(low=0, high=10000))\r\n\r\n\r\nclass Plots:\r\n    @staticmethod\r\n    def plot_data(data_points, labeled_points, oracle, labels, predicted_labels):\r\n        colors = [\"blue\", \"orange\", \"green\", \"purple\", \"black\"]\r\n\r\n        data_points = np.array(data_points)\r\n        labeled_points = np.array(labeled_points)\r\n\r\n        for i in range(len(colors)):\r\n            plt.scatter(labeled_points[labels == i, 0], labeled_points[labels == i, 1],\r\n                        color=colors[i], s=30.0, alpha=0.5)\r\n\r\n        for i in range(len(colors)):\r\n            plt.scatter(data_points[oracle == i, 0], data_points[oracle == i, 1],\r\n                        color=colors[i], label=f\"Cluster{i}\", s=1.0)\r\n\r\n        for i in range(len(predicted_labels)):\r\n            if predicted_labels[i] != oracle[i]:\r\n                plt.scatter(data_points[i, 0], data_points[i, 1],\r\n                            color='red', s=30.0, alpha=0.5)\r\n\r\n        plt.show()\r\n\r\n    @staticmethod\r\n    def plot_confusion_matrix(cm, title):\r\n        cm_display = sklearn.metrics.ConfusionMatrixDisplay(cm)\r\n        cm_display.plot()\r\n        plt.title(title)\r\n        plt.show()\r\n\r\n    @staticmethod\r\n    def plot_scores(x, y_avg, y_std=None, title=''):\r\n        fig, ax = plt.subplots(1)\r\n        ax.plot(x, y_avg)\r\n        if y_std is not None:\r\n            ax.fill_between(x, y_avg + y_std, y_avg + (-1)*y_std,\r\n                            facecolor='blue', alpha=0.25)\r\n        plt.title(title)\r\n        plt.show()\r\n\r\n    @staticmethod\r\n    def plot_connected_components(data_by_component, component_sizes):\r\n        from matplotlib import pyplot as plt\r\n        colors = plt.cm.gist_rainbow(np.linspace(0, 1, 10))\r\n        fig, ax = plt.subplots()\r\n        color_idx = 0\r\n\r\n        for component_label in range(len(component_sizes)):\r\n            if component_sizes[component_label] > 10:\r\n                ax.scatter(np.array(data_by_component[component_label])[:, 0],\r\n                           np.array(data_by_component[component_label])[:, 1],\r\n                           color=colors[color_idx], s=1.0)\r\n                color_idx += 1\r\n            else:\r\n                ax.scatter(np.array(data_by_component[component_label])[:, 0],\r\n                           np.array(data_by_component[component_label])[:, 1],\r\n                           color='black', s=1.0)\r\n\r\n        fig.show()\r\n\r\n\r\nclass AdjacencyMatrices:\r\n    @staticmethod\r\n    def distance_matrix(data, metric='euclidean'):\r\n        from scipy.spatial.distance import squareform, pdist\r\n        distance_matrix = squareform(pdist(data, metric=metric))\r\n        return distance_matrix\r\n\r\n    @staticmethod\r\n    def knn_graph(data, k=1, metric='euclidean'):\r\n        return gl.weightmatrix.knn(data, k=k, kernel='distance', similarity=metric)\r\n\r\n    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):\r\n        distance_matrix = self.distance_matrix(data, metric=metric)\r\n        binary_epsilon_graph = (distance_matrix <= radius).astype(int)\r\n        if sparse:\r\n            from scipy.sparse import csc_matrix\r\n            return csc_matrix(binary_epsilon_graph)\r\n        return binary_epsilon_graph\r\n\r\n    def weighted_epsilon_graph(self, data, radius=1.0, metric='euclidean'):\r\n        if metric == 'graph_euclidean' or metric == 'graph_sqeuclidean':\r\n            from scipy.sparse.csgraph import dijkstra\r\n            distance_matrix = self.distance_matrix(data, metric=metric[6:])\r\n            distance_matrix[distance_matrix > radius] = np.inf\r\n            weighted_adj_matrix = dijkstra(distance_matrix, directed=False)\r\n        else:\r\n            weighted_adj_matrix = gl.weightmatrix.epsilon_ball(data, epsilon=radius, kernel='distance')\r\n\r\n        return weighted_adj_matrix\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/HelperFunctions.py b/HelperFunctions.py
+--- a/HelperFunctions.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ b/HelperFunctions.py	(date 1757472291542)
+@@ -41,7 +41,7 @@
+         plt.show()
+ 
+     @staticmethod
+-    def plot_scores(x, y_avg, y_std=None, title=''):
++    def plot_avg_scores(x, y_avg, y_std=None, title=''):
+         fig, ax = plt.subplots(1)
+         ax.plot(x, y_avg)
+         if y_std is not None:
+@@ -75,12 +75,26 @@
+     @staticmethod
+     def distance_matrix(data, metric='euclidean'):
+         from scipy.spatial.distance import squareform, pdist
+-        distance_matrix = squareform(pdist(data, metric=metric))
++
++        if 'fermat' in metric: # should be in format 'pfermat' where p is power
++            p = int(metric[0])
++            distance_matrix = squareform(pdist(data, metric='euclidean')) ** p
++            from scipy.sparse.csgraph import dijkstra
++            distance_matrix = dijkstra(distance_matrix, directed=False)
++        else:
++            distance_matrix = squareform(pdist(data, metric=metric))
++
+         return distance_matrix
+ 
+     @staticmethod
+-    def knn_graph(data, k=1, metric='euclidean'):
+-        return gl.weightmatrix.knn(data, k=k, kernel='distance', similarity=metric)
++    def knn_graph(data, k=1, metric='euclidean', sparse=True):
++        # todo: metric is fixed as euclidean!!!
++        knn_graph = gl.weightmatrix.knn(data.to_numpy(), k=k, kernel='distance', similarity='euclidean').toarray()
++        knn_graph[knn_graph > 0.0] = 1
++        if sparse:
++            from scipy.sparse import csc_matrix
++            return csc_matrix(knn_graph)
++        return knn_graph
+ 
+     def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
+         distance_matrix = self.distance_matrix(data, metric=metric)
+@@ -101,6 +115,49 @@
+ 
+         return weighted_adj_matrix
+ 
++    def full_graph(self, data, metric='euclidean'):
++        distance_matrix = self.distance_matrix(data, metric=metric)
++        return gl.graph(distance_matrix)
++
++
++class BestParameter:
++    def __init__(self, data, budget, metric='euclidean'):
++        self.data = data
++        self.budget = budget
++
++        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
++
++    def _compute_coverage(self, radius):
++        """ :return coverage: the ratio of points in the same connected component as a labeled point
++            to the total number of points """
++
++        adjacency_matrix = (self.distance_matrix <= radius).astype(int)
++        from scipy.sparse.csgraph import connected_components
++        n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
++        _, component_sizes = np.unique(component_labels, return_counts=True)
++        ordered_components_sizes = sorted(component_sizes, reverse=True)
++        coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
++
++        return coverage
++
++    def best_radius(self, alpha):
++        diameter = np.max(self.distance_matrix)
++        tolerance = 0.01  # todo : how to determine tolerance?
++        radius_lowerbound, radius_upperbound = 0, diameter
++
++        while (radius_upperbound - radius_lowerbound) > tolerance:
++
++            radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
++
++            coverage = self._compute_coverage(radius_to_compute)
++            if coverage > alpha:
++                radius_upperbound = radius_to_compute
++            else:
++                radius_lowerbound = radius_to_compute
++
++        best_radius = (radius_lowerbound + radius_upperbound) / 2
++        return best_radius
++
+ 
+ 
+ 
+Index: _compile_.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import time\r\nfrom CreateData import *\r\nimport PredictionMethods\r\nfrom SamplingAlgorithms import *\r\nfrom HelperFunctions import AdjacencyMatrices as AM\r\nfrom HelperFunctions import BestParameter\r\n\r\n\r\nclass Iterate:\r\n    def __init__(self):\r\n        self.data_sets = [('spiral', create_spiral_data)]\r\n\r\n        self.models = [(RandomSampling, None),\r\n                       (KmeansSampling, 'full'),\r\n                       (ProbCoverSampling, 'epsilon'),\r\n                       (ProbCoverSampling, 'knn'),\r\n                       (ConnectedComponentSampling, 'epsilon'),\r\n                       (ConnectedComponentSampling, 'knn')]\r\n\r\n    def _build_graph(self, data, graph_method, metric, radius=None):\r\n        if graph_method == 'full':\r\n            return AM().full_graph(data, metric=metric)\r\n        elif graph_method == 'epsilon':\r\n            return AM().binary_epsilon_graph(data, radius=radius, metric=metric)\r\n        elif graph_method == 'knn':\r\n            return AM().knn_graph(data, k=1, metric=metric)\r\n        else:\r\n            return None\r\n\r\n    def main(self): # todo: parallelize\r\n        score_df = pd.DataFrame(columns=['Budget', 'Score', 'Metric', 'Graph Type', 'Sampling Model', 'Prediction Method', 'Radius', 'Computation Time'])\r\n\r\n        for name, data_set in self.data_sets:\r\n            for budget in [10, 20, 30]:\r\n                for metric in ['2fermat', '1fermat', 'euclidean']:\r\n                    for model, graph_method in self.models:\r\n                        graph_metric_scores, euclidean_scores = [], []\r\n                        for seed in range(1, 3):\r\n                            data, oracle = data_set(100, random_state=seed)\r\n                            if seed == 1:\r\n                                time1 = time.time()\r\n                                radius = BestParameter(data, budget, metric).best_radius(alpha=0.95)\r\n                                radius_time = time.time() - time1\r\n\r\n                            time2 = time.time()\r\n                            graph = self._build_graph(data, graph_method, metric, radius=radius)\r\n                            query_indices = model(data, budget, graph, random_state=1).query_indices\r\n\r\n                            p=1\r\n                            if metric == '2fermat':\r\n                                p = 2\r\n\r\n                            time3 = time.time()\r\n                            graph_metric_scores.append(PredictionMethods.GraphMetricAccuracy(data, query_indices, oracle, fermat_p=p, radius=radius).score)\r\n                            graph_time = time.time() - time2\r\n                            time4 = time.time()\r\n                            euclidean_scores.append(PredictionMethods.EuclideanAccuracy(data, query_indices, oracle).score)\r\n                            euclidean_time = time.time() - time4 + (time3 - time2)\r\n\r\n                        new_data_point = pd.DataFrame([{'Budget': budget,\r\n                                                        'Score': np.round(np.average(graph_metric_scores), 3),\r\n                                                        'Metric': metric,\r\n                                                        'Graph Type': graph_method,\r\n                                                        'Sampling Model': model,\r\n                                                        'Prediction Method': 'Graph Metric',\r\n                                                        'Radius': radius,\r\n                                                        'Computation Time': graph_time + radius_time,\r\n                                                        }])\r\n                        score_df = pd.concat([score_df, new_data_point])\r\n\r\n                        new_data_point = pd.DataFrame([{'Budget': budget,\r\n                                                        'Score': np.round(np.average(euclidean_scores), 3),\r\n                                                        'Metric': metric,\r\n                                                        'Graph Type': graph_method,\r\n                                                        'Sampling Model': model,\r\n                                                        'Prediction Method': 'Euclidean',\r\n                                                        'Radius': radius,\r\n                                                        'Computation Time': euclidean_time + radius_time,\r\n                                                        }])\r\n                        print(new_data_point)\r\n                        score_df = pd.concat([score_df, new_data_point])\r\n\r\n            score_df.to_csv(f'[{name}]_scores.csv', index=False)\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/_compile_.py b/_compile_.py
+--- a/_compile_.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ b/_compile_.py	(date 1757608207968)
+@@ -1,83 +1,91 @@
+ import time
+ from CreateData import *
+-import PredictionMethods
++from PredictionMethods import EuclideanAccuracy, GraphMetricAccuracy
+ from SamplingAlgorithms import *
+ from HelperFunctions import AdjacencyMatrices as AM
+ from HelperFunctions import BestParameter
+-
++from joblib import Parallel, delayed
+ 
+ class Iterate:
+     def __init__(self):
+-        self.data_sets = [('spiral', create_spiral_data)]
++        self._num_points = 100  # num_points = None gets the entire data set
++        self._num_iters = 2 # number of runs to average the score over
++        self._data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
++        self._budgets = [10, 20, 30]
++
++        self._search_grid = self.build_search_grid()
+ 
+-        self.models = [(RandomSampling, None),
+-                       (KmeansSampling, 'full'),
+-                       (ProbCoverSampling, 'epsilon'),
+-                       (ProbCoverSampling, 'knn'),
+-                       (ConnectedComponentSampling, 'epsilon'),
+-                       (ConnectedComponentSampling, 'knn')]
++        self.create_score_csv()
++
++    def build_search_grid(self):
++        import itertools
++
++        query_models = [(RandomSampling, None),
++                  (KmeansSampling, 'full'),
++                  (ProbCoverSampling, 'epsilon'),
++                  (ProbCoverSampling, 'knn'),
++                  (ConnectedComponentSampling, 'epsilon'),
++                  (ConnectedComponentSampling, 'knn')]
++        metric = ['2fermat', '1fermat', 'euclidean']
++        prediction_models = [GraphMetricAccuracy, EuclideanAccuracy]
+ 
+-    def _build_graph(self, data, graph_method, metric, radius=None):
++        return list(itertools.product(self._data_generators, self._budgets, metric, query_models, prediction_models))
++
++    @staticmethod
++    def __build_graph(data, graph_method, metric, radius=None):
+         if graph_method == 'full':
+             return AM().full_graph(data, metric=metric)
+         elif graph_method == 'epsilon':
+             return AM().binary_epsilon_graph(data, radius=radius, metric=metric)
+         elif graph_method == 'knn':
+-            return AM().knn_graph(data, k=1, metric=metric)
++            return AM().knn_graph(data, k=10, metric=metric)
+         else:
+             return None
+ 
+-    def main(self): # todo: parallelize
+-        score_df = pd.DataFrame(columns=['Budget', 'Score', 'Metric', 'Graph Type', 'Sampling Model', 'Prediction Method', 'Radius', 'Computation Time'])
++    def __compute_score(self, data_generator, budget, metric, graph_method, query_model, prediction_model):
++        scores, computation_times = [], []
++        for seed in range(1, self._num_iters + 1):
++            data, oracle = data_generator[0](self._num_points, random_state=seed)
+ 
+-        for name, data_set in self.data_sets:
+-            for budget in [10, 20, 30]:
+-                for metric in ['2fermat', '1fermat', 'euclidean']:
+-                    for model, graph_method in self.models:
+-                        graph_metric_scores, euclidean_scores = [], []
+-                        for seed in range(1, 3):
+-                            data, oracle = data_set(100, random_state=seed)
+-                            if seed == 1:
+-                                time1 = time.time()
+-                                radius = BestParameter(data, budget, metric).best_radius(alpha=0.95)
+-                                radius_time = time.time() - time1
++            start_time = time.time()
+ 
+-                            time2 = time.time()
+-                            graph = self._build_graph(data, graph_method, metric, radius=radius)
+-                            query_indices = model(data, budget, graph, random_state=1).query_indices
++            radius = BestParameter(data, budget, metric).best_radius(alpha=0.95) # todo: radius not always necessary
++            graph = self.__build_graph(data, graph_method, metric, radius=radius)
++            query_indices = query_model(data, budget, graph, random_state=seed).query_indices
++            scores.append(prediction_model(data, query_indices, oracle, radius=radius, metric=metric).score * 100)
+ 
+-                            p=1
+-                            if metric == '2fermat':
+-                                p = 2
++            computation_times.append(time.time() - start_time)
+ 
+-                            time3 = time.time()
+-                            graph_metric_scores.append(PredictionMethods.GraphMetricAccuracy(data, query_indices, oracle, fermat_p=p, radius=radius).score)
+-                            graph_time = time.time() - time2
+-                            time4 = time.time()
+-                            euclidean_scores.append(PredictionMethods.EuclideanAccuracy(data, query_indices, oracle).score)
+-                            euclidean_time = time.time() - time4 + (time3 - time2)
++        return np.round(np.average(scores), 3), np.round(np.average(computation_times), 3)
++
++    def _get_new_data_point(self, data_generator, budget, metric, graph_method, query_model, prediction_model):
++        average_score, average_computation_time = self.__compute_score(data_generator, budget, metric, graph_method,
++                                                                       query_model, prediction_model)
+ 
+-                        new_data_point = pd.DataFrame([{'Budget': budget,
+-                                                        'Score': np.round(np.average(graph_metric_scores), 3),
+-                                                        'Metric': metric,
+-                                                        'Graph Type': graph_method,
+-                                                        'Sampling Model': model,
+-                                                        'Prediction Method': 'Graph Metric',
+-                                                        'Radius': radius,
+-                                                        'Computation Time': graph_time + radius_time,
+-                                                        }])
+-                        score_df = pd.concat([score_df, new_data_point])
++        new_data_point = pd.DataFrame([{'Budget': budget,
++                                        'Score': average_score,
++                                        'Metric': metric,
++                                        'Graph Type': graph_method,
++                                        'Sampling Model': str(query_model)[27:-2],
++                                        'Prediction Method': str(prediction_model)[26:-2],
++                                        'Computation Time': average_computation_time,
++                                        }])
+ 
+-                        new_data_point = pd.DataFrame([{'Budget': budget,
+-                                                        'Score': np.round(np.average(euclidean_scores), 3),
+-                                                        'Metric': metric,
+-                                                        'Graph Type': graph_method,
+-                                                        'Sampling Model': model,
+-                                                        'Prediction Method': 'Euclidean',
+-                                                        'Radius': radius,
+-                                                        'Computation Time': euclidean_time + radius_time,
+-                                                        }])
+-                        print(new_data_point)
+-                        score_df = pd.concat([score_df, new_data_point])
++        return new_data_point
++
++    def create_score_csv(self):
++        start_time = time.time()
++        for data_generator in self._data_generators:
++            score_df = pd.DataFrame(columns=['Budget', 'Score', 'Metric', 'Graph Type', 'Sampling Model',
++                                              'Prediction Method', 'Computation Time'])
++
++            scores = Parallel(n_jobs=-1)(
++                delayed(self._get_new_data_point)(data_generator, budget, metric, graph_method, query_model, prediction_model)
++                for data_generator, budget, metric, (query_model, graph_method), prediction_model in self._search_grid
++            )
++            for data_point in scores:
++                score_df = pd.concat([score_df, data_point])
+ 
+-            score_df.to_csv(f'[{name}]_scores.csv', index=False)
++
++            score_df.to_csv(f'results/[{data_generator[1]}]_scores.csv', index=False)
++        print('Total Run Time', time.time() - start_time)
+\ No newline at end of file
+Index: PredictionMethods.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import sklearn\r\nimport numpy as np\r\nimport pandas as pd\r\nfrom HelperFunctions import Plots, AdjacencyMatrices\r\n\r\nclass EuclideanAccuracy:\r\n    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, create_plots=False):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.query_indices = query_indices\r\n        self.oracle = oracle\r\n\r\n        self.labeled_points = self.unlabeled_points.loc[self.query_indices]\r\n        self.labels = self.oracle[self.labeled_points.index]\r\n        self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)\r\n\r\n        predicted_labels, confusion_matrix, self.score = self._calculate_score()\r\n\r\n        if create_plots:\r\n            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,\r\n                            self.labels, predicted_labels)\r\n            Plots.plot_confusion_matrix(confusion_matrix, title=None)\r\n\r\n    def __apply_KNN(self):\r\n        from sklearn.neighbors import KNeighborsClassifier\r\n        knn = KNeighborsClassifier(n_neighbors=1)\r\n        knn.fit(self.labeled_points, self.labels)\r\n        predicted_labels = knn.predict(self.unlabeled_points)\r\n        return predicted_labels\r\n\r\n    def _calculate_score(self):\r\n        predicted_labels = self.__apply_KNN()\r\n        cm = sklearn.metrics.confusion_matrix(self.oracle, predicted_labels)\r\n        accuracy = cm.diagonal().sum() / cm.sum()\r\n        return predicted_labels, cm, accuracy\r\n\r\n\r\nclass GraphMetricAccuracy:\r\n    def __init__(self, unlabeled_points, query_indices, oracle, radius=1.0, create_plots=False):\r\n        self.unlabeled_points = unlabeled_points\r\n        self.query_indices = query_indices\r\n        self.oracle = oracle\r\n        self._radius = radius\r\n\r\n        self.labeled_points = self.unlabeled_points.loc[self.query_indices]\r\n        self.labels = self.oracle[self.query_indices]\r\n        self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)\r\n\r\n        predicted_labels, confusion_matrix, self.score = self._calculate_score()\r\n\r\n        if create_plots:\r\n            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,\r\n                            self.labels, predicted_labels)\r\n            Plots.plot_confusion_matrix(confusion_matrix, title=None)\r\n\r\n    def __graph_predict(self):\r\n        from scipy.sparse.csgraph import dijkstra\r\n\r\n        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='sqeuclidean')\r\n        distance_matrix[distance_matrix > self._radius] = np.inf\r\n        indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices]\r\n        self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)\r\n\r\n        # separate the points into connected and disconnected components\r\n        self.inf_indices = np.isinf(self.weighted_adj_matrix).all(axis=0)\r\n        non_inf_indices = np.invert(self.inf_indices)\r\n\r\n        # propagate the labels on the connected points\r\n        closest_labeled_pt_indices = np.argmin(self.weighted_adj_matrix, axis=0)\r\n        predicted_labels = np.array([self.labels[self.labeled_points.index[idx]] for idx in closest_labeled_pt_indices])\r\n\r\n        # label the disconnected points based on the closest connected points\r\n        projection_indices = np.ravel(np.argmin(distance_matrix[np.ix_(non_inf_indices, self.inf_indices)], axis=0))\r\n        # np.ravel flattens projection_indices from 2 dimensions to 1\r\n\r\n        predicted_labels[self.inf_indices] = predicted_labels[non_inf_indices][projection_indices]\r\n\r\n        return predicted_labels\r\n\r\n    def _calculate_score(self):\r\n        from sklearn.metrics import confusion_matrix\r\n        predicted_labels = self.__graph_predict()\r\n        cm = confusion_matrix(self.oracle, predicted_labels)\r\n        accuracy = cm.diagonal().sum() / cm.sum()\r\n        return predicted_labels, cm, accuracy\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/PredictionMethods.py b/PredictionMethods.py
+--- a/PredictionMethods.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ b/PredictionMethods.py	(date 1757534508949)
+@@ -1,10 +1,9 @@
+ import sklearn
+ import numpy as np
+-import pandas as pd
+ from HelperFunctions import Plots, AdjacencyMatrices
+ 
+ class EuclideanAccuracy:
+-    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, create_plots=False):
++    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, metric=None, create_plots=False):
+         self.unlabeled_points = unlabeled_points
+         self.query_indices = query_indices
+         self.oracle = oracle
+@@ -35,12 +34,16 @@
+ 
+ 
+ class GraphMetricAccuracy:
+-    def __init__(self, unlabeled_points, query_indices, oracle, radius=1.0, create_plots=False):
++    def __init__(self, unlabeled_points, query_indices, oracle, radius=1.0, metric='euclidean', create_plots=False):
+         self.unlabeled_points = unlabeled_points
+         self.query_indices = query_indices
+         self.oracle = oracle
+         self._radius = radius
+ 
++        self._p = 1
++        if ('2' in metric) or ('sq' in metric):
++            self._p = 2
++
+         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
+         self.labels = self.oracle[self.query_indices]
+         self.queried_unlabeled_points = self.unlabeled_points.drop(index=self.query_indices)
+@@ -55,24 +58,25 @@
+     def __graph_predict(self):
+         from scipy.sparse.csgraph import dijkstra
+ 
+-        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='sqeuclidean')
+-        distance_matrix[distance_matrix > self._radius] = np.inf
+-        indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices]
++        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='euclidean')
++        distance_matrix **= self._p
++        distance_matrix[distance_matrix > self._radius] = np.inf # DO NOT REMOVE
++        indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices] # get iloc from loc
+         self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)
+ 
+         # separate the points into connected and disconnected components
+-        self.inf_indices = np.isinf(self.weighted_adj_matrix).all(axis=0)
+-        non_inf_indices = np.invert(self.inf_indices)
++        inf_indices = np.isinf(self.weighted_adj_matrix).all(axis=0)
++        non_inf_indices = np.invert(inf_indices)
+ 
+         # propagate the labels on the connected points
+         closest_labeled_pt_indices = np.argmin(self.weighted_adj_matrix, axis=0)
+         predicted_labels = np.array([self.labels[self.labeled_points.index[idx]] for idx in closest_labeled_pt_indices])
+ 
+         # label the disconnected points based on the closest connected points
+-        projection_indices = np.ravel(np.argmin(distance_matrix[np.ix_(non_inf_indices, self.inf_indices)], axis=0))
+-        # np.ravel flattens projection_indices from 2 dimensions to 1
++        projection_indices = np.ravel(np.argmin(distance_matrix[np.ix_(non_inf_indices, inf_indices)], axis=0))
++        # note to self: np.ravel flattens projection_indices from 2 dimensions to 1
+ 
+-        predicted_labels[self.inf_indices] = predicted_labels[non_inf_indices][projection_indices]
++        predicted_labels[inf_indices] = predicted_labels[non_inf_indices][projection_indices]
+ 
+         return predicted_labels
+ 
+Index: _unused_code_.gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/_unused_code_.gitignore b/_unused_code_.gitignore
+new file mode 100644
+--- /dev/null	(date 1757518122726)
++++ b/_unused_code_.gitignore	(date 1757518122726)
+@@ -0,0 +1,258 @@
++# CREATEDATA.PY
++
++def create_toy_dataset1(num_points):
++    """ Creates three concentric rings of data. """
++    from sklearn.datasets import make_blobs
++
++    X, y = make_blobs(n_samples=num_points // 3, cluster_std=1, centers=[(0, 0)],
++                      n_features=5, random_state=1)
++
++    X2, y2 = make_blobs(n_samples=num_points // 3, cluster_std=1, centers=[(0, 0)],
++                        n_features=1, random_state=1)
++
++    X3, y3 = make_blobs(n_samples=num_points // 3, cluster_std=1, centers=[(0, 0)],
++                        n_features=1, random_state=1)
++
++    from sklearn import preprocessing
++    min_max_scaler = preprocessing.Normalizer()
++    X2_scaled = min_max_scaler.fit_transform(X2)*7 + 4*(np.random.uniform(size=(num_points // 3, 2)) - 0.5)
++    X2 = pd.DataFrame(X2_scaled)
++
++    X3_scaled = min_max_scaler.fit_transform(X2)*4 + 4*(np.random.uniform(size=(num_points // 3, 2)) - 0.5)
++    X3 = pd.DataFrame(X3_scaled)
++
++    X = np.concatenate((X, X2, X3))
++    y = np.concatenate((y, y2+1, y3+2))
++
++    return _process_data(X, y)
++
++def create_toy_dataset2(num_points):
++    """ Makes two clusters of different sizes. """
++    from sklearn.datasets import make_blobs
++
++    centers1 = [(0, 0), (10, 0)]
++    cluster_std1 = [1, 5]
++
++    centers2 = [(0, 0)]
++    cluster_std2 = [1]
++
++    X1, y1 = make_blobs(n_samples=2 * num_points // 3, cluster_std=cluster_std1, centers=centers1,
++                        n_features=5, random_state=None)
++    X2, y2 = make_blobs(n_samples=num_points // 3, cluster_std=cluster_std2, centers=centers2,
++                        n_features=5, random_state=None)
++
++    X = np.concatenate((X1, X2))
++    y = np.concatenate((y1, y2))
++
++    return _process_data(X, y)
++
++def create_toy_dataset3(num_points):
++    """ Makes five clusters that overlap with three of the clusters being more dense than the others. """
++    from sklearn.datasets import make_blobs
++    num_categories = 5
++
++    centers1 = [(2*i-5, 0) for i in range(num_categories)]
++    cluster_std1 = [1 for _ in range(num_categories)]
++
++    centers2 = [(2*i-5, 0) for i in range(num_categories - 1)]
++    cluster_std2 = [1 for _ in range(num_categories - 1)]
++
++    X1, y1 = make_blobs(n_samples=num_points // 2, cluster_std=cluster_std1, centers=centers1,
++                        n_features=num_categories, random_state=None)
++    X2, y2 = make_blobs(n_samples=num_points // 2, cluster_std=cluster_std2, centers=centers2,
++                        n_features=num_categories, random_state=None)
++
++    X = np.concatenate((X1, X2))
++    y = np.concatenate((y1, y2))
++
++    return _process_data(X, y)
++
++
++# SAMPLINGALGORITHMS.PY
++
++class ContinuousProbCover(BaseModel):
++    """ This model is similar to ProbCover, except the adjacency matrix is weighted by distance. """
++    def __init__(self, unlabeled_points, oracle, budget=10):
++        BaseModel.__init__(self, unlabeled_points, oracle, budget)
++
++        self._distances_from_labeled_pts = None
++
++        query_indices = self._get_query_indices()
++        self._run_algorithm(query_indices)
++
++    def __update_distance_matrices(self, idx):
++        if self._distances_from_labeled_pts is None:
++            self._distances_from_labeled_pts = self.distance_matrix[idx]
++        else:
++            self._distances_from_labeled_pts = np.minimum(self._distances_from_labeled_pts, self.distance_matrix[idx])
++
++        diameter = np.max(self.distance_matrix)
++        self.distance_matrix[idx] = np.repeat(diameter, self.distance_matrix.shape[1]) # todo: is this the smartest idea? probably not
++
++    def _get_query_indices(self):
++        num_outgoing_edges = zip(self.distance_matrix.sum(axis=1),
++                                 self.unlabeled_points.index,
++                                 range(self.unlabeled_points.shape[0]))
++        _, query_idx, array_query_idx = heapq.nsmallest(1, num_outgoing_edges)[0]
++
++        self.__update_distance_matrices(array_query_idx)
++        query_indices = [query_idx]
++
++        for _ in range(self.budget-1):
++            delta_matrix = self._distances_from_labeled_pts - self.distance_matrix
++            delta_matrix[delta_matrix < 0] = 0
++            num_outgoing_edges = zip(delta_matrix.sum(axis=1),
++                                     self.unlabeled_points.index,
++                                     range(self.unlabeled_points.shape[0]))
++            _, query_idx, array_query_idx = heapq.nlargest(1, num_outgoing_edges)[0]
++
++            self.__update_distance_matrices(array_query_idx)
++            query_indices.append(query_idx)
++
++        return query_indices
++
++# PREDICTION METHOD . CONNECTED COMPONENT SAMPLING
++
++def plot_data(self, predicted_labels):
++    """ Creates a 2D plot based on first two columns of data. """
++    from matplotlib import pyplot as plt
++    import matplotlib
++
++    colors = ["blue", "orange", "green", "purple", "black"]
++
++    unlabeled_points = np.array(self.model.unlabeled_points.iloc[:,[0, 1]])
++    labeled_points = np.array(self.labeled_points.iloc[:,[0, 1]])
++
++    fig, ax = plt.subplots()
++
++    for i in range(len(colors)):
++        for (x, y) in zip(labeled_points[self.labels == i, 0], labeled_points[self.labels == i, 1]):
++            circ = matplotlib.patches.Circle((x, y), radius=self.model.radius, color=colors[i], alpha=0.25)
++            ax.add_patch(circ)
++
++        ax.scatter(unlabeled_points[self.oracle == i, 0], unlabeled_points[self.oracle == i, 1],
++                   color=colors[i], label=f"Cluster{i}", s=1.0)
++
++    for i in range(len(predicted_labels)):
++        if predicted_labels[i] != self.oracle[i]:
++            ax.scatter(unlabeled_points[i, 0], unlabeled_points[i, 1],
++                       color='red', s=30.0, alpha=0.5)
++
++    ax.scatter(unlabeled_points[self.inf_indices, 0], unlabeled_points[self.inf_indices, 1],
++                color='purple', s=30.0, alpha=0.5)
++
++    fig.show()
++
++# FIND BEST RADIUS
++
++import CreateData
++import PredictionMethods
++from SamplingAlgorithms import *
++from HelperFunctions import AdjacencyMatrices
++from PredictionMethods import *
++from CreateData import *
++import numpy as np
++
++from SamplingAlgorithms import ConnectedComponentSampling
++
++
++def get_score(radius):
++    adjacency_matrix = AdjacencyMatrices().binary_epsilon_graph(data, radius, metric='euclidean')
++    method = ProbCoverSampling(data, 10, adjacency_matrix, random_state=1)
++    accuracy = PredictionMethods.GraphMetricAccuracy(data, method.query_indices, oracle, radius=radius, create_plots=False).score
++
++    return accuracy
++
++
++def _find_best_radius(sampling_model, prediction_method, seed):
++    distance_matrix = AdjacencyMatrices().distance_matrix(data, metric='euclidean')
++    diameter = np.max(distance_matrix)
++    tolerance = 0.01 # todo : how to determine tolerance?
++    radius_lowerbound, radius_upperbound = 0, diameter
++
++    accuracy1 = get_score(radius_lowerbound)
++    accuracy2 = get_score(radius_upperbound)
++
++    best_accuracy = max(accuracy1, accuracy2)
++
++    while (radius_upperbound - radius_lowerbound) > tolerance:
++
++        radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
++
++        adjacency_matrix = AdjacencyMatrices().binary_epsilon_graph(data, radius_to_compute, metric='euclidean')
++        method = sampling_model(data, 10, adjacency_matrix, random_state=seed)
++        accuracy = prediction_method(data, method.query_indices, oracle, radius=radius_to_compute, create_plots=False).score
++
++        if accuracy > best_accuracy:
++            best_accuracy = accuracy
++            if radius_to_compute > radius_lowerbound:
++                radius_lowerbound = radius_to_compute
++            else:
++                radius_upperbound = radius_to_compute
++        else:
++            if radius_to_compute > radius_lowerbound:
++                radius_upperbound = radius_to_compute
++            else:
++                radius_lowerbound = radius_to_compute
++
++    approximate_best_radius = (radius_lowerbound + radius_upperbound) / 2
++
++    best_radius = approximate_best_radius
++    for k in range(-5, 6):
++        if get_score(approximate_best_radius+k*0.1) > best_accuracy:
++            best_radius = approximate_best_radius+k*0.1
++    print(best_accuracy)
++
++    return best_radius
++
++best_radius_record = pd.DataFrame(columns=['Data Set', 'Sampling Model', 'Prediction Method', 'Best Radius'])
++if __name__ == '__main__':
++    for data_generator in [get_Satellite_data]: # , get_USPS_data, get_OPTDIGITS_data
++        for model in [ProbCoverSampling, ConnectedComponentSampling]:
++            for method in [EuclideanAccuracy, GraphMetricAccuracy]:
++                best_radii = []
++                for seed in range(1):
++                    data, oracle = data_generator(1000, random_state=seed)
++                    best_radius = _find_best_radius(model, method, seed)
++                    best_radii.append(best_radius)
++                print('data', data_generator, 'model', model, 'method', method, 'best', np.mean(best_radii))
++                new_data_point = pd.DataFrame([{'Data Set': data_generator,
++                                           'Sampling Model': model,
++                                           'Prediction Method': method,
++                                           'Best Radius': np.round(np.mean(best_radii), 2),
++                                           }])
++                best_radius_record = pd.concat([best_radius_record, new_data_point])
++
++to_save = best_radius_record.to_csv('best_radius_euclidean.csv', index=False)
++
++# PARALLELIZATION
++
++from joblib import Parallel, delayed
++import pandas as pd
++
++import itertools
++
++
++def run_simulation( param1, param2):
++    # Simulate some expensive computation
++    result = (param1 ** 2 + param2 ** 2)  # Dummy computation
++
++    new_data_point = pd.DataFrame([{'param1': param1,
++                                    'param2': param2,
++                                    'result': result}])
++    return new_data_point
++
++
++if __name__ == '__main__':
++    param1_values = [1, 2, 3]
++    param2_values = [10, 20, 30]
++
++    grid = list(itertools.product(param1_values, param2_values))
++
++    score_df = pd.DataFrame( columns=['param1', 'param2', 'result'])
++    results = Parallel(n_jobs=-1)(
++        delayed(run_simulation)(p1, p2) for p1, p2 in grid
++    )
++    for data_point in results:
++        score_df = pd.concat([score_df, data_point])
++    score_df.to_csv(f'[test]_scores.csv', index=False)
+Index: _temporary_.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/_temporary_.py b/_temporary_.py
+new file mode 100644
+--- /dev/null	(date 1757441238311)
++++ b/_temporary_.py	(date 1757441238311)
+@@ -0,0 +1,268 @@
++import os
++
++os.environ['OMP_NUM_THREADS'] = '4'
++
++import heapq
++import numpy as np
++from HelperFunctions import AdjacencyMatrices, _set_random_state
++import scipy.sparse as sp
++from scipy.sparse import csr_matrix
++import graphlearning as gl
++from sklearn.neighbors import KNeighborsClassifier
++from sklearn.metrics import accuracy_score
++import scipy.io as sio
++import os
++from sklearn.cluster import kmeans_plusplus
++import PredictionMethods
++import matplotlib.pyplot as plt
++
++
++def stable_cumsum(arr, axis=None, rtol=1e-05, atol=1e-08):
++    """Use high precision for cumsum and check that final value matches sum.
++
++    Warns if the final cumulative sum does not match the sum (up to the chosen
++    tolerance).
++
++    Parameters
++    ----------
++    arr : array-like
++        To be cumulatively summed as flat.
++    axis : int, default=None
++        Axis along which the cumulative sum is computed.
++        The default (None) is to compute the cumsum over the flattened array.
++    rtol : float, default=1e-05
++        Relative tolerance, see ``np.allclose``.
++    atol : float, default=1e-08
++        Absolute tolerance, see ``np.allclose``.
++
++    Returns
++    -------
++    out : ndarray
++        Array with the cumulative sums along the chosen axis.
++    """
++    out = np.cumsum(arr, axis=axis, dtype=np.float64)
++    expected = np.sum(arr, axis=axis, dtype=np.float64)
++    if not np.allclose(
++            out.take(-1, axis=axis), expected, rtol=rtol, atol=atol, equal_nan=True
++    ):
++        warnings.warn(
++            (
++                "cumsum was found to be unstable: "
++                "its last element does not correspond to sum"
++            ),
++            RuntimeWarning,
++        )
++    return out
++
++
++def kmeansplusplus(X, labels, distance_matrix, budget, n_local_trials=None, random_state=None):
++    centers, indices = kmeans_plusplus(X, n_clusters=budget, n_local_trials=n_local_trials, random_state=random_state)
++    return centers, indices
++
++
++def adaptive_sampling(X, labels, distance_matrix, budget, distance_type='Fermat', n_local_trials=None,
++                      random_state=None):
++    if isinstance(random_state, int):
++        random_state = np.random.default_rng(random_state)
++    sample_weight = np.ones(X.shape[0])
++    n_clusters = budget
++    n_samples, n_features = X.shape
++    if n_local_trials is None:
++        n_local_trials = 3 + int(np.log(n_clusters))
++    # print(X.shape)
++    centers = np.empty((n_clusters, n_features), dtype=X.dtype)
++    indices = np.full(n_clusters, -1, dtype=int)
++
++    # center_ids = gl.trainsets.generate(labels, 1, seed=42)
++
++    # center_ids = random_state.integers(n_samples)
++    center_id = random_state.integers(n_samples)
++    # center_id = random_state.randint(n_samples)
++    print(center_id)
++
++    W = distance_matrix
++    coreset = [center_id]  # initialize with first center
++
++    if sp.issparse(X):
++        centers[0] = X[[center_id]].toarray()
++    else:
++        centers[0] = X[center_id]
++    indices[0] = center_id
++
++    def plot_prop(prop_vals, show_source=True):
++        # assert prop_vals.size == n
++        fig, ax = plt.subplots()
++        p = ax.scatter(X[:, 0], X[:, 1], c=prop_vals)
++        if show_source:
++            ax.scatter(X[coreset, 0], X[coreset, 1], c='r', s=80, marker='^')
++        plt.colorbar(p, ax=ax)
++        plt.show()
++
++    def compute_distance(W, bdy_set):
++        if distance_type == 'dijkstra':
++            # W = gl.weightmatrix.knn(X, k=10, kernel='gaussian')
++            G = gl.graph(W)
++            dist = G.dijkstra(bdy_set=bdy_set, bdy_val=0)
++            dists = dist
++
++            return dists
++
++        elif distance_type == 'peikonal':
++            # W = gl.weightmatrix.knn(X, k=10, kernel='gaussian')
++            G = gl.graph(W)
++            dist = G.peikonal(bdy_set=bdy_set, p=1)
++            dists = dist ** 2
++            return dists
++
++        elif distance_type == 'Fermat':
++            p = 2
++            # W = gl.weightmatrix.knn(X, k=10, kernel='gaussian')
++            W_powered = W.copy()
++            W_powered **= p
++            W = W_powered
++            G = gl.graph(W)
++            dist = G.dijkstra(bdy_set=bdy_set, bdy_val=0)
++            dists = dist ** 2
++            return dists
++
++        elif distance_type == 'Euclidean':
++            p = 1
++            # W = gl.weightmatrix.knn(X, k=10, kernel='gaussian')
++            W_powered = W.copy()
++            W_powered.data **= p
++            W = W_powered
++            G = gl.graph(W)
++            dist = G.dijkstra(bdy_set=bdy_set, bdy_val=0)
++            dists = dist ** 2
++            return dists
++
++        elif distance_type == 'poisson_propagation':
++            # W = gl.weightmatrix.knn(X, k=10, kernel='gaussian')
++            G = gl.graph(W)
++            poiss_prop = poisson_propagation(G, idx=bdy_set, tau=1e-6)
++            dists = 1. / (1e-1 + poiss_prop)
++
++            dists = dists - dists.min()
++            dists = dists ** 2
++            return dists
++        else:
++            raise ValueError(f"Unsupported distance method: {distance_type}")
++
++    dists = compute_distance(W, coreset)
++
++    current_pot = np.sum(dists)
++
++    for c in range(1, n_clusters):
++
++        # plot_prop(dists)
++
++        rand_vals = random_state.uniform(size=n_local_trials) * current_pot
++        candidates_samples = np.searchsorted(stable_cumsum(dists), rand_vals)
++        # print(candidates_samples)
++
++        np.clip(candidates_samples, None, dists.size - 1, out=candidates_samples)
++
++        # candidates_samples = np.random.choice(n_samples, n_local_trials, p=probs, replace=False)
++
++        sums = []
++        dists_per_candidate = []
++        for s in candidates_samples:
++            bdy_set = indices[:c].tolist() + [s]  # Combine candidate and previous centers
++
++            d = compute_distance(W, bdy_set)
++
++            sums.append(np.sum(d))
++            dists_per_candidate.append(d)
++        min_index = np.argmin(sums)
++        best_sample_point = candidates_samples[min_index]
++        dists = dists_per_candidate[min_index]
++
++        current_pot = np.sum(dists)
++
++        if sp.issparse(X):
++            centers[c] = X[[best_sample_point]].toarray()
++        else:
++            centers[c] = X[best_sample_point]
++        indices[c] = best_sample_point
++
++    return centers, indices
++
++
++def adaptive(X, data, distance_matrix, labels, budget=None, distance_type='Fermat', model_type='1-NN'):
++    NUM_SEEDS = 10
++    y = len(np.unique(labels))  # number of classes
++
++    ACC_matrix = np.zeros((NUM_SEEDS, budget - y + 1))  # +1 because of y-1 offset
++
++    for seed_idx, seed in enumerate([42, 51, 61, 71, 81, 91, 101, 111, 121, 131]):
++        # acc = np.zeros(num_choices + 1)  # Ensure correct length
++        acc = []
++        list_num_labels = []
++
++        if distance_type == 'Fermat':
++            centers, train_indices = adaptive_sampling(data, labels, distance_matrix, budget=budget,
++                                                       distance_type=distance_type, n_local_trials=10,
++                                                       random_state=seed)
++        elif distance_type == 'peikonal':
++            centers, train_indices = adaptive_sampling(data, labels, distance_matrix, budget=budget,
++                                                       distance_type=distance_type, n_local_trials=10,
++                                                       random_state=seed)
++        elif distance_type == 'dijkstra':
++            centers, train_indices = adaptive_sampling(data, labels, distance_matrix, budget=budget,
++                                                       distance_type=distance_type, n_local_trials=10,
++                                                       random_state=seed)
++        elif distance_type == 'Euclidean':
++            centers, train_indices = kmeansplusplus(data, labels, distance_matrix, budget=budget, n_local_trials=10,
++                                                    random_state=seed)
++
++        for i, idx in enumerate(range(y - 1, budget)):
++
++            # current_train_indices = np.array(train_indices[:idx+1])
++
++            if model_type == '1-NN':
++                model = KNeighborsClassifier(n_neighbors=1)
++                current_train_indices = np.array(train_indices[:idx + 1], dtype=int).ravel()
++                train_labels = labels[current_train_indices]
++                test_indices = np.setdiff1d(np.arange(len(data)), current_train_indices)
++                X_train, y_train = data[current_train_indices], labels[current_train_indices]
++                X_test, y_test = data[test_indices], labels[test_indices]
++                # print(train_labels)
++                model.fit(X_train, y_train)
++
++                y_pred = model.predict(X_test)
++                accuracy = accuracy_score(y_test, y_pred) * 100
++                acc.append(accuracy)
++
++                # acc[i] = accuracy
++                print(f"Seed {seed}, #labels: {len(current_train_indices)}, accuracy: {accuracy:.4f}")
++                list_num_labels.append(len(current_train_indices))
++
++
++            elif model_type == 'GMA':
++                current_train_indices = np.array(train_indices[:idx + 1], dtype=int).ravel()
++                score = PredictionMethods.GraphMetricAccuracy(data, current_train_indices, labels, 0.08).score
++                accuracy = round(score * 100, 2)
++                print(accuracy)
++                acc.append(accuracy)
++                print(f"Seed {seed}, #labels: {len(current_train_indices)}, accuracy: {accuracy:.4f}")
++                list_num_labels.append(len(current_train_indices))
++
++        ACC_matrix[seed_idx, :] = acc
++
++    avg_accuracy = ACC_matrix.mean(axis=0)
++    print(avg_accuracy)
++
++    results_dir = 'results'
++    if not os.path.exists(results_dir):
++        os.makedirs(results_dir)
++
++    file_path = os.path.join(results_dir, f'adaptive_{X}_{distance_type}_{model_type}.mat')
++
++    sio.savemat(file_path, {
++        'avg_accuracy': avg_accuracy,
++        'ACC_matrix': ACC_matrix,
++        'list_num_labels': np.array(list_num_labels)
++    })
++
++    return avg_accuracy, list_num_labels
++
+Index: CreateData.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import numpy as np\r\nfrom HelperFunctions import _set_random_state\r\nimport graphlearning as gl\r\nimport pandas as pd\r\n\r\n\r\n\r\ndef _process_data(data, labels, num_points, random_state):\r\n    \"\"\" Ensures that the data and labels are of the correct type and have the same indexing to\r\n        make querying easier later on. \"\"\"\r\n    _random_state = _set_random_state(random_state)\r\n\r\n    labels = pd.Series(labels, index=np.arange(data.shape[0]))\r\n\r\n    data = pd.DataFrame(data, index=np.arange(data.shape[0]))\r\n    data['query index'] = labels.index\r\n    data.set_index('query index', inplace=True)\r\n\r\n    if num_points is not None:\r\n        idx_list = _random_state.choice(range(data.shape[0]), num_points, replace=False)\r\n        data = data.iloc[idx_list, :]\r\n        labels = labels.iloc[idx_list]\r\n\r\n    return data, labels\r\n\r\n\r\ndef create_spiral_data(num_points, dimension=2, random_state=None):\r\n    _random_state = _set_random_state(random_state)\r\n\r\n    theta = 2 * np.pi * np.sqrt(np.random.rand(num_points // 2))\r\n\r\n    radius1 = 2 * theta + np.pi\r\n    spiral1 = np.array([np.cos(theta) * radius1, np.sin(theta) * radius1]).T\r\n    noisy_spiral1 = spiral1 + _random_state.normal(size=(num_points // 2, 2))\r\n\r\n    radius2 = -2 * theta - np.pi\r\n    spiral2 = np.array([np.cos(theta) * radius2, np.sin(theta) * radius2]).T\r\n    noisy_sprial2 = spiral2 + _random_state.normal(size=(num_points // 2, 2)) / 2\r\n\r\n    X = np.append(noisy_spiral1, noisy_sprial2, axis=0)\r\n    y = np.append(np.zeros((num_points // 2, 1)), np.ones((num_points // 2, 1)))\r\n\r\n    if dimension > 2:\r\n        noise = _random_state.normal(size=(num_points, dimension - 2)) / np.sqrt(2 * (dimension - 2))\r\n        X = np.append(X, noise, axis=1)\r\n\r\n    return _process_data(X, y, None, random_state)\r\n\r\n\r\n\r\ndef get_MNIST_data(num_points=None, random_state=None):\r\n    \"\"\" Read in csv files from https://www.kaggle.com/datasets/oddrationale/mnist-in-csv?resource=download. \"\"\"\r\n\r\n    mnist_train = pd.read_csv('MNIST-data/mnist_train.csv')\r\n    X, y = mnist_train.drop(labels='label', axis=1), mnist_train['label']\r\n    factor = 28 * 255  # 28x28 pixel image with grayscale 0-255\r\n\r\n    return _process_data(X / factor, y, num_points, random_state)\r\n\r\n\r\ndef get_CIFAR10_data(num_points=None, random_state=None):\r\n    X, y = gl.datasets.load('cifar', metric='aet', labels_only=False)\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\ndef get_FASHIONMNIST_data(num_points=None, random_state=None):\r\n    X, y = gl.datasets.load('fashionmnist', metric='vae', labels_only=False)\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\ndef get_Satellite_data(num_points, random_state=None):\r\n    X = np.loadtxt('data/data_satellite.txt', usecols=range(36))\r\n    y = np.loadtxt('data/ground_truth_satellite.txt', usecols=range(1))\r\n    y = y.astype(int)\r\n\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\ndef get_USPS_data(num_points, random_state=None):\r\n    X = np.loadtxt('data/data_usps.txt', usecols=range(256))\r\n    y = np.loadtxt('data/ground_truth_usps.txt', usecols=range(1))\r\n    y = y.astype(int)\r\n\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\ndef get_COIL20_data(num_points, random_state=None):\r\n    X = np.loadtxt('data/data_coil20.txt', usecols=range(1024))\r\n    y = np.loadtxt('data/ground_truth_coil20.txt', usecols=range(1))\r\n    y = y.astype(int)\r\n\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\ndef get_OPTDIGITS_data(num_points, random_state=None):\r\n    X = np.loadtxt('data/data_optdigits.txt', usecols=range(64))\r\n    y = np.loadtxt('data/ground_truth_optdigits.txt', usecols=range(1))\r\n    y = y.astype(int)\r\n\r\n    return _process_data(X, y, num_points, random_state)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/CreateData.py b/CreateData.py
+--- a/CreateData.py	(revision 8c4310d2e5b5815f4ed5b84ea356f658678bfdcf)
++++ b/CreateData.py	(date 1757521375256)
+@@ -47,11 +47,10 @@
+     return _process_data(X, y, None, random_state)
+ 
+ 
+-
+ def get_MNIST_data(num_points=None, random_state=None):
+     """ Read in csv files from https://www.kaggle.com/datasets/oddrationale/mnist-in-csv?resource=download. """
+ 
+-    mnist_train = pd.read_csv('MNIST-data/mnist_train.csv')
++    mnist_train = pd.read_csv('data/MNIST-data/mnist_train.csv')
+     X, y = mnist_train.drop(labels='label', axis=1), mnist_train['label']
+     factor = 28 * 255  # 28x28 pixel image with grayscale 0-255
+ 

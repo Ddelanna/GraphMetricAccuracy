@@ -4,7 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e5cc33c7-59a7-4479-a10f-b7874a6d1fd9" name="Changes" comment="compileCode_v2.0" />
+    <list default="true" id="e5cc33c7-59a7-4479-a10f-b7874a6d1fd9" name="Changes" comment="compileCode_v2.0">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HelperFunctions.py" beforeDir="false" afterPath="$PROJECT_DIR$/HelperFunctions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PredictionMethods.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/RUN_ME.py" beforeDir="false" afterPath="$PROJECT_DIR$/RUN_ME.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SamplingAlgorithms.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/_compile_.py" beforeDir="false" afterPath="$PROJECT_DIR$/_compile_.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/_temporary_.py" beforeDir="false" afterPath="$PROJECT_DIR$/_temporary_.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/testing.py" beforeDir="false" afterPath="$PROJECT_DIR$/testing.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -48,22 +57,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/dodel/PycharmProjects/GraphMetricAccuracy",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/dodel/PycharmProjects/GraphMetricAccuracy&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\dodel\PycharmProjects\GraphMetricAccuracy" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -80,7 +93,9 @@
       <option name="presentableId" value="Default" />
       <updated>1757522289455</updated>
       <workItem from="1757522290601" duration="852000" />
-      <workItem from="1757608344975" duration="318000" />
+      <workItem from="1757608344975" duration="1547000" />
+      <workItem from="1758168921440" duration="895000" />
+      <workItem from="1758169829627" duration="266000" />
     </task>
     <task id="LOCAL-00001" summary="compileCode_v1.0">
       <option name="closed" value="true" />
@@ -114,7 +129,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757608605052</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="compileCode_v2.0">
+      <option name="closed" value="true" />
+      <created>1757608690069</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1757608690069</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

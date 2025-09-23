@@ -13,7 +13,7 @@ from sklearn.metrics import accuracy_score
 import scipy.io as sio
 import os
 from sklearn.cluster import kmeans_plusplus
-import PredictionMethods
+import PredictionModels
 import matplotlib.pyplot as plt
 
 

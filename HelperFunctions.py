@@ -88,12 +88,17 @@ class AdjacencyMatrices:
 
     @staticmethod
     def knn_graph(data, k=1, metric='euclidean', sparse=True):
-        # todo: metric is fixed as euclidean!!!
         knn_graph = gl.weightmatrix.knn(data.to_numpy(), k=k, kernel='distance', similarity='euclidean').toarray()
         knn_graph[knn_graph > 0.0] = 1
+
+        # from sklearn.neighbors import kneighbors_graph
+        # knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity')
+        # print(knn_graph)
+
         if sparse:
             from scipy.sparse import csc_matrix
             return csc_matrix(knn_graph)
+
         return knn_graph
 
     def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):

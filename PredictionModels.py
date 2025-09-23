@@ -1,9 +1,12 @@
 import sklearn
 import numpy as np
+
+import HelperFunctions
 from HelperFunctions import Plots, AdjacencyMatrices
 
+
 class EuclideanAccuracy:
-    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, metric=None, create_plots=False):
+    def __init__(self, unlabeled_points, query_indices, oracle, create_plots=False):
         self.unlabeled_points = unlabeled_points
         self.query_indices = query_indices
         self.oracle = oracle
@@ -34,15 +37,15 @@ class EuclideanAccuracy:
 
 
 class GraphMetricAccuracy:
-    def __init__(self, unlabeled_points, query_indices, oracle, radius=1.0, metric='euclidean', create_plots=False):
+    def __init__(self, unlabeled_points, query_indices, oracle, metric='2fermat', radius=None, create_plots=False):
         self.unlabeled_points = unlabeled_points
         self.query_indices = query_indices
         self.oracle = oracle
-        self._radius = radius
+        self._metric = metric
 
-        self._p = 1
-        if ('2' in metric) or ('sq' in metric):
-            self._p = 2
+        self._radius = radius
+        if radius is None:
+            self._radius = HelperFunctions.BestParameter(unlabeled_points, len(self.query_indices), metric=metric).best_radius(0.95)
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.labels = self.oracle[self.query_indices]
@@ -59,7 +62,8 @@ class GraphMetricAccuracy:
         from scipy.sparse.csgraph import dijkstra
 
         distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='euclidean')
-        distance_matrix **= self._p
+        if ('2' in self._metric) or ('sq' in self._metric):
+            distance_matrix **= 2
         distance_matrix[distance_matrix > self._radius] = np.inf # DO NOT REMOVE
         indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices] # get iloc from loc
         self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)
@@ -86,3 +90,14 @@ class GraphMetricAccuracy:
         cm = confusion_matrix(self.oracle, predicted_labels)
         accuracy = cm.diagonal().sum() / cm.sum()
         return predicted_labels, cm, accuracy
+
+
+class NearestNeighborAccuracy:
+    def __init__(self, unlabeled_points, query_indices, oracle, radius=None, metric=None, create_plots=False):
+        if metric == 'euclidean':
+            self.score = EuclideanAccuracy(unlabeled_points, query_indices, oracle, create_plots=create_plots).score
+        elif 'fermat' in metric:
+            self.score = GraphMetricAccuracy(unlabeled_points, query_indices, oracle, metric, radius, create_plots=create_plots).score
+
+
+

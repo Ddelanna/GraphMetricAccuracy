@@ -73,56 +73,37 @@ class Plots:
 
 class AdjacencyMatrices:
     @staticmethod
+    def _check_sparsity(matrix, sparse):
+        if not sparse:
+            return matrix
+        from scipy.sparse import csc_matrix
+        return csc_matrix(matrix)
+
+    @staticmethod
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist
 
-        if 'fermat' in metric: # should be in format 'pfermat' where p is power
-            p = int(metric[0])
-            distance_matrix = squareform(pdist(data, metric='euclidean')) ** p
+        if (metric == 'euclidean') or (('fermat' in metric) and ('1' in metric)):
+            return squareform(pdist(data, metric='euclidean'))
+        elif metric == 'sqeuclidean':
+            return squareform(pdist(data, metric='sqeuclidean'))
+        elif ('fermat' in metric) and ('2' in metric):
+            distance_matrix = squareform(pdist(data, metric='sqeuclidean'))
             from scipy.sparse.csgraph import dijkstra
-            distance_matrix = dijkstra(distance_matrix, directed=False)
+            return dijkstra(distance_matrix, directed=False)
         else:
-            distance_matrix = squareform(pdist(data, metric=metric))
+            raise ValueError('Metric must be either \'euclidean\', \'sqeuclidean\', or \'pfermat\'.')
 
-        return distance_matrix
-
-    @staticmethod
-    def knn_graph(data, k=1, metric='euclidean', sparse=True):
-        knn_graph = gl.weightmatrix.knn(data.to_numpy(), k=k, kernel='distance', similarity='euclidean').toarray()
-        knn_graph[knn_graph > 0.0] = 1
-
-        # from sklearn.neighbors import kneighbors_graph
-        # knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity')
-        # print(knn_graph)
-
-        if sparse:
-            from scipy.sparse import csc_matrix
-            return csc_matrix(knn_graph)
-
-        return knn_graph
+    def knn_graph(self, data, k=1, metric='euclidean', sparse=True):
+        from sklearn.neighbors import kneighbors_graph
+        knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity').toarray()
+        knn_graph = np.maximum(knn_graph, knn_graph.transpose())
+        return self._check_sparsity(knn_graph, sparse)
 
     def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
         distance_matrix = self.distance_matrix(data, metric=metric)
         binary_epsilon_graph = (distance_matrix <= radius).astype(int)
-        if sparse:
-            from scipy.sparse import csc_matrix
-            return csc_matrix(binary_epsilon_graph)
-        return binary_epsilon_graph
-
-    def weighted_epsilon_graph(self, data, radius=1.0, metric='euclidean'):
-        if metric == 'graph_euclidean' or metric == 'graph_sqeuclidean':
-            from scipy.sparse.csgraph import dijkstra
-            distance_matrix = self.distance_matrix(data, metric=metric[6:])
-            distance_matrix[distance_matrix > radius] = np.inf
-            weighted_adj_matrix = dijkstra(distance_matrix, directed=False)
-        else:
-            weighted_adj_matrix = gl.weightmatrix.epsilon_ball(data, epsilon=radius, kernel='distance')
-
-        return weighted_adj_matrix
-
-    def full_graph(self, data, metric='euclidean'):
-        distance_matrix = self.distance_matrix(data, metric=metric)
-        return gl.graph(distance_matrix)
+        return self._check_sparsity(binary_epsilon_graph, sparse)
 
 
 class BestParameter:

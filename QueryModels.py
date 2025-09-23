@@ -6,7 +6,7 @@ from HelperFunctions import _set_random_state
 
 
 class RandomSampling:
-    def __init__(self, unlabeled_points, budget, graph_repr=None, random_state=None):
+    def __init__(self, unlabeled_points, budget, graph_repr, random_state=None):
         self.unlabeled_points = unlabeled_points
         self.budget = budget
 
@@ -34,10 +34,12 @@ class KmeansSampling:
         candidates_samples_indices = np.searchsorted(stable_cumsum(dists), rand_vals)
         np.clip(candidates_samples_indices, None, dists.size-1, out=candidates_samples_indices)
 
+        # todo: is this even computing MSE?
         MSE_per_candidate = []  # mean squared error per candidate
         dists_per_candidate = []
+        # todo: compute submatrix one time at the start
         for candidate_sample_idx in candidates_samples_indices:
-            candidate_distance = self.graph.dijkstra(bdy_set=query_indices + [candidate_sample_idx], bdy_val=0)
+            candidate_distance = np.min(self.graph[query_indices + [candidate_sample_idx]], axis=0)
             MSE_per_candidate.append(np.sum(candidate_distance))
             dists_per_candidate.append(candidate_distance)
         min_MSE_idx = np.argmin(MSE_per_candidate)
@@ -47,9 +49,9 @@ class KmeansSampling:
         return best_sample_point, dists
 
     def _get_query_indices(self):
-        query_indices = [self._random_state.choice(self.unlabeled_points.shape[0])] # initialize query_indices
+        query_indices = [self._random_state.choice(self.unlabeled_points.index)] # initialize query_indices
 
-        dists = self.graph.dijkstra(bdy_set=query_indices)
+        dists = self.graph[query_indices]
         for _ in range(1, self.budget):
             best_sample_point_idx, dists = self.__find_best_sample_point(query_indices, dists)
             query_indices.append(best_sample_point_idx)
@@ -58,7 +60,7 @@ class KmeansSampling:
 
 
 class ProbCoverSampling:
-    def __init__(self, unlabeled_points, budget, adjacency_matrix=None, random_state=None):
+    def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
         self.unlabeled_points = unlabeled_points
         self.budget = budget
         self.adjacency_matrix = adjacency_matrix
@@ -104,6 +106,7 @@ class ProbCoverSampling:
                     return query_indices
                 except ValueError:
                     raise f'USER WARNING: Under-utilization of budget.'
+
             # add the index of the data point with the most out-going edges
             query_indices.append(query_idx)
 
@@ -113,7 +116,7 @@ class ProbCoverSampling:
 
 
 class ConnectedComponentSampling:
-    def __init__(self, unlabeled_points, budget, adjacency_matrix=None, random_state=None):
+    def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
         self.unlabeled_points = unlabeled_points
         self.budget = budget
         self.adjacency_matrix = adjacency_matrix
@@ -169,39 +172,25 @@ class ConnectedComponentSampling:
 
         return component_budgets
 
-    def __update_query_indices(self, query_indices, component_data_indices, component_budget):
-        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data_indices, component_data_indices)]
-
-        if query_indices is None:
-            query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
-                                              budget=component_budget,
-                                              adjacency_matrix=sub_adjacency_matrix).query_indices
-        else:
-            new_query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
-                                                  budget=component_budget,
-                                                  adjacency_matrix=sub_adjacency_matrix).query_indices
-            query_indices = np.append(query_indices, new_query_indices)
-
-        return query_indices
-
-    def _apply_probcover(self):
+    def _apply_probcover(self, component_label):
         """ Split the data based on connected component and use ProbCover to determine which points to label
             within each component. """
-
-        query_indices = None
-        for label in range(self.n_components):
-            if self.component_budgets[label] != 0:
-                component_data_indices = np.where(self.component_labels == label)[0]
-                query_indices = self.__update_query_indices(query_indices, component_data_indices, self.component_budgets[label])
-
+        component_data_indices = np.where(self.component_labels == component_label)[0]
+        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data_indices, component_data_indices)]
+        query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
+                                          budget=self.component_budgets[component_label],
+                                          adjacency_matrix=sub_adjacency_matrix).query_indices
         return query_indices
 
     def _run_algorithm(self):
+        from joblib import Parallel, delayed
+        from itertools import chain
+
         self.n_components, self.component_labels, self.component_sizes = self._find_connected_components()
         self.component_budgets = self._allot_component_budgets()
-        self.query_indices = self._apply_probcover()
-
-
+        self.query_indices = Parallel(n_jobs=10)(delayed(self._apply_probcover)(comp_label) for comp_label in range(self.n_components)
+                                        if self.component_budgets[comp_label] != 0)
+        self.query_indices = list(chain.from_iterable(self.query_indices)) # flatten the list
 
 
 

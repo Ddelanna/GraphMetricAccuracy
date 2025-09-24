@@ -83,27 +83,57 @@ class AdjacencyMatrices:
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist
 
-        if (metric == 'euclidean') or (('fermat' in metric) and ('1' in metric)):
+        if (metric == 'euclidean') or ('1' in metric):
             return squareform(pdist(data, metric='euclidean'))
-        elif metric == 'sqeuclidean':
+        elif (metric == 'sqeuclidean') or ('2' in metric):
             return squareform(pdist(data, metric='sqeuclidean'))
-        elif ('fermat' in metric) and ('2' in metric):
-            distance_matrix = squareform(pdist(data, metric='sqeuclidean'))
-            from scipy.sparse.csgraph import dijkstra
-            return dijkstra(distance_matrix, directed=False)
         else:
-            raise ValueError('Metric must be either \'euclidean\', \'sqeuclidean\', or \'pfermat\'.')
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
 
-    def knn_graph(self, data, k=1, metric='euclidean', sparse=True):
+    def knn_graph(self, data, k=1, radius=1.0, metric='euclidean', sparse=True):
         from sklearn.neighbors import kneighbors_graph
-        knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity').toarray()
-        knn_graph = np.maximum(knn_graph, knn_graph.transpose())
+        from scipy.sparse.csgraph import dijkstra
+
+        if metric == 'euclidean':
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='connectivity').toarray()
+            knn_graph = np.maximum(knn_graph, knn_graph.transpose())
+        elif ('fermat' in metric) and ('1' in metric):
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='distance').toarray()
+            knn_graph [knn_graph  == 0] = np.inf
+            np.fill_diagonal(knn_graph, 0)
+            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
+            graph_distance_matrix = dijkstra(knn_graph, directed=False)
+            knn_graph = (graph_distance_matrix <= 2 * radius).astype(int)
+        elif ('fermat' in metric) and ('2' in metric):
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='sqeuclidean', mode='distance').toarray()
+            knn_graph[knn_graph == 0] = np.inf
+            np.fill_diagonal(knn_graph, 0)
+            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
+            graph_distance_matrix = dijkstra(knn_graph, directed=False)
+            knn_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
+        else:
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
+
         return self._check_sparsity(knn_graph, sparse)
 
-    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
-        distance_matrix = self.distance_matrix(data, metric=metric)
-        binary_epsilon_graph = (distance_matrix <= radius).astype(int)
-        return self._check_sparsity(binary_epsilon_graph, sparse)
+    def epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
+        from scipy.sparse.csgraph import dijkstra
+        distance_matrix = self.distance_matrix(data, metric='euclidean')
+
+        if metric == 'euclidean':
+            epsilon_graph = (distance_matrix <= radius).astype(int)
+        elif ('fermat' in metric) and ('1' in metric):
+            distance_matrix[distance_matrix > radius] = np.inf
+            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
+            epsilon_graph = (graph_distance_matrix <= 2 * radius).astype(int)
+        elif ('fermat' in metric) and ('2' in metric):
+            distance_matrix[distance_matrix > radius] = np.inf
+            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
+            epsilon_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
+        else:
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
+
+        return self._check_sparsity(epsilon_graph, sparse)
 
 
 class BestParameter:
@@ -111,7 +141,7 @@ class BestParameter:
         self.data = data
         self.budget = budget
 
-        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
+        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric='euclidean')
 
     def _compute_coverage(self, radius):
         """ :return coverage: the ratio of points in the same connected component as a labeled point

@@ -6,7 +6,7 @@ from HelperFunctions import Plots, AdjacencyMatrices
 
 
 class EuclideanAccuracy:
-    def __init__(self, unlabeled_points, query_indices, oracle, create_plots=False):
+    def __init__(self, unlabeled_points, query_indices, oracle, create_cm=False):
         self.unlabeled_points = unlabeled_points
         self.query_indices = query_indices
         self.oracle = oracle
@@ -17,10 +17,8 @@ class EuclideanAccuracy:
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
 
-        if create_plots:
-            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,
-                            self.labels, predicted_labels)
-            Plots.plot_confusion_matrix(confusion_matrix, title=None)
+        if create_cm:
+            Plots.plot_confusion_matrix(confusion_matrix)
 
     def __apply_KNN(self):
         from sklearn.neighbors import KNeighborsClassifier
@@ -37,7 +35,7 @@ class EuclideanAccuracy:
 
 
 class GraphMetricAccuracy:
-    def __init__(self, unlabeled_points, query_indices, oracle, metric='2fermat', radius=None, create_plots=False):
+    def __init__(self, unlabeled_points, query_indices, oracle, metric='2fermat', radius=None, create_cm=False):
         self.unlabeled_points = unlabeled_points
         self.query_indices = query_indices
         self.oracle = oracle
@@ -45,7 +43,7 @@ class GraphMetricAccuracy:
 
         self._radius = radius
         if radius is None:
-            self._radius = HelperFunctions.BestParameter(unlabeled_points, len(self.query_indices), metric=metric).best_radius(0.95)
+            self._radius = HelperFunctions.BestParameter(unlabeled_points, len(self.query_indices)).best_radius(0.95)
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.labels = self.oracle[self.query_indices]
@@ -53,17 +51,13 @@ class GraphMetricAccuracy:
 
         predicted_labels, confusion_matrix, self.score = self._calculate_score()
 
-        if create_plots:
-            Plots.plot_data(self.unlabeled_points, self.labeled_points, self.oracle,
-                            self.labels, predicted_labels)
-            Plots.plot_confusion_matrix(confusion_matrix, title=None)
+        if create_cm:
+            Plots.plot_confusion_matrix(confusion_matrix)
 
     def __graph_predict(self):
         from scipy.sparse.csgraph import dijkstra
 
-        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric='euclidean')
-        if ('2' in self._metric) or ('sq' in self._metric):
-            distance_matrix **= 2
+        distance_matrix = AdjacencyMatrices().distance_matrix(self.unlabeled_points, metric=self._metric)
         distance_matrix[distance_matrix > self._radius] = np.inf # DO NOT REMOVE
         indices = [self.unlabeled_points.index.get_loc(idx) for idx in self.query_indices] # get iloc from loc
         self.weighted_adj_matrix = dijkstra(distance_matrix, indices=indices, directed=False)
@@ -74,7 +68,7 @@ class GraphMetricAccuracy:
 
         # propagate the labels on the connected points
         closest_labeled_pt_indices = np.argmin(self.weighted_adj_matrix, axis=0)
-        predicted_labels = np.array([self.labels[self.labeled_points.index[idx]] for idx in closest_labeled_pt_indices])
+        predicted_labels = np.array(self.labels.iloc[closest_labeled_pt_indices])
 
         # label the disconnected points based on the closest connected points
         projection_indices = np.ravel(np.argmin(distance_matrix[np.ix_(non_inf_indices, inf_indices)], axis=0))
@@ -95,9 +89,9 @@ class GraphMetricAccuracy:
 class NearestNeighborAccuracy:
     def __init__(self, unlabeled_points, query_indices, oracle, radius=None, metric=None, create_plots=False):
         if metric == 'euclidean':
-            self.score = EuclideanAccuracy(unlabeled_points, query_indices, oracle, create_plots=create_plots).score
+            self.score = EuclideanAccuracy(unlabeled_points, query_indices, oracle, create_cm=create_plots).score
         elif 'fermat' in metric:
-            self.score = GraphMetricAccuracy(unlabeled_points, query_indices, oracle, metric, radius, create_plots=create_plots).score
+            self.score = GraphMetricAccuracy(unlabeled_points, query_indices, oracle, metric, radius, create_cm=create_plots).score
 
 
 

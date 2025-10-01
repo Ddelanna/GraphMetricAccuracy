@@ -1,6 +1,6 @@
 import time
 from CreateData import *
-from PredictionModels import NearestNeighborAccuracy
+from PredictionModels import EuclideanAccuracy, GraphMetricAccuracy, NearestNeighborAccuracy
 from QueryModels import *
 from HelperFunctions import AdjacencyMatrices as AM
 from HelperFunctions import BestParameter
@@ -8,10 +8,12 @@ from joblib import Parallel, delayed
 
 class Pipeline:
     def __init__(self):
-        self._num_points = 1000  # num_points = None gets the entire data set
+        self._num_points = 100  # num_points = None gets the entire data set
         self._num_iters = 2 # number of runs to average the score over
         self._data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
         self._budgets = [10, 20]
+
+        self._search_grid = self.build_search_grid()
 
         self.create_score_csv()
 
@@ -47,10 +49,9 @@ class Pipeline:
         else:
             return None
 
-    def __compute_average_score(self, data_generator, budget, query_model, graph_method, metric, prediction_model):
-
+    def __compute_score(self, data_generator, budget, query_model, graph_method, metric, prediction_model):
         scores, computation_times = [], []
-        for seed in range(self._num_iters):
+        for seed in range(1, self._num_iters + 1):
             data, oracle = data_generator[0](self._num_points, random_state=seed)
 
             start_time = time.time()
@@ -58,33 +59,39 @@ class Pipeline:
             graph = self.__build_graph(data, budget, graph_method, metric)
             query_indices = query_model(data, budget, graph, random_state=seed).query_indices
             score = NearestNeighborAccuracy(data, query_indices, oracle, metric=prediction_model).score
-            scores.append(100 * score)
+            scores.append(score * 100)
 
             computation_times.append(time.time() - start_time)
 
         return np.round(np.average(scores), 3), np.round(np.average(computation_times), 3)
 
     def _get_new_data_point(self, data_generator, budget, query_model, graph_method, metric, prediction_model):
-        average_score, average_computation_time = self.__compute_average_score(data_generator, budget, query_model,
-                                                                               graph_method, metric, prediction_model)
-        print(query_model, graph_method, average_score, average_computation_time)
+        average_score, average_computation_time = self.__compute_score(data_generator, budget, query_model,
+                                                                       graph_method, metric, prediction_model)
 
-        new_data_point = [budget, average_score, f'{graph_method}-{metric}', str(query_model), prediction_model, average_computation_time]
+        new_data_point = pd.DataFrame([{'Budget': budget,
+                                        'Score': average_score,
+                                        'Graph Type': f'{graph_method}-{metric}',
+                                        'Sampling Model': str(query_model),
+                                        'Prediction Method': prediction_model,
+                                        'Computation Time': average_computation_time,
+                                        }])
+
         return new_data_point
 
     def create_score_csv(self):
-        search_grid = self.build_search_grid()
-
         start_time = time.time()
         for data_generator in self._data_generators:
+            score_df = pd.DataFrame(columns=['Budget', 'Score', 'Graph Type', 'Sampling Model',
+                                              'Prediction Method', 'Computation Time'])
 
             scores = Parallel(n_jobs=-1)(
                 delayed(self._get_new_data_point)(data_generator, budget, query_model, graph_method, metric, prediction_model)
-                for data_generator, budget, (query_model, graph_method, metric), prediction_model in search_grid
+                for data_generator, budget, (query_model, graph_method, metric), prediction_model in self._search_grid
             )
+            for data_point in scores:
+                score_df = pd.concat([score_df, data_point])
 
-            column_names = ['Budget', 'Score', 'Graph Type', 'Sampling Model', 'Prediction Method', 'Computation Time']
-            score_df = pd.DataFrame(scores, columns=column_names)
+
             score_df.to_csv(f'results/[{data_generator[1]}]_scores.csv', index=False)
-
         print('Total Run Time', time.time() - start_time)

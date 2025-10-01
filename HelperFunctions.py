@@ -73,67 +73,56 @@ class Plots:
 
 class AdjacencyMatrices:
     @staticmethod
-    def _check_sparsity(matrix, sparse):
-        if not sparse:
-            return matrix
-        from scipy.sparse import csc_matrix
-        return csc_matrix(matrix)
-
-    @staticmethod
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist
 
-        if (metric == 'euclidean') or ('1' in metric):
-            return squareform(pdist(data, metric='euclidean'))
-        elif (metric == 'sqeuclidean') or ('2' in metric):
-            return squareform(pdist(data, metric='sqeuclidean'))
+        if 'fermat' in metric: # should be in format 'pfermat' where p is power
+            p = int(metric[0])
+            distance_matrix = squareform(pdist(data, metric='euclidean')) ** p
+            from scipy.sparse.csgraph import dijkstra
+            distance_matrix = dijkstra(distance_matrix, directed=False)
         else:
-            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
+            distance_matrix = squareform(pdist(data, metric=metric))
 
-    def knn_graph(self, data, k=1, radius=1.0, metric='euclidean', sparse=True):
-        from sklearn.neighbors import kneighbors_graph
-        from scipy.sparse.csgraph import dijkstra
+        return distance_matrix
 
-        if metric == 'euclidean':
-            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='connectivity').toarray()
-            knn_graph = np.maximum(knn_graph, knn_graph.transpose())
-        elif ('fermat' in metric) and ('1' in metric):
-            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='distance').toarray()
-            knn_graph [knn_graph  == 0] = np.inf
-            np.fill_diagonal(knn_graph, 0)
-            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
-            graph_distance_matrix = dijkstra(knn_graph, directed=False)
-            knn_graph = (graph_distance_matrix <= 2 * radius).astype(int)
-        elif ('fermat' in metric) and ('2' in metric):
-            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='sqeuclidean', mode='distance').toarray()
-            knn_graph[knn_graph == 0] = np.inf
-            np.fill_diagonal(knn_graph, 0)
-            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
-            graph_distance_matrix = dijkstra(knn_graph, directed=False)
-            knn_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
-        else:
-            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
+    @staticmethod
+    def knn_graph(data, k=1, metric='euclidean', sparse=True):
+        knn_graph = gl.weightmatrix.knn(data.to_numpy(), k=k, kernel='distance', similarity='euclidean').toarray()
+        knn_graph[knn_graph > 0.0] = 1
 
-        return self._check_sparsity(knn_graph, sparse)
+        # from sklearn.neighbors import kneighbors_graph
+        # knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity')
+        # print(knn_graph)
 
-    def epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
-        from scipy.sparse.csgraph import dijkstra
-        distance_matrix = self.distance_matrix(data, metric='euclidean')
+        if sparse:
+            from scipy.sparse import csc_matrix
+            return csc_matrix(knn_graph)
 
-        if metric == 'euclidean':
-            epsilon_graph = (distance_matrix <= radius).astype(int)
-        elif ('fermat' in metric) and ('1' in metric):
+        return knn_graph
+
+    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
+        distance_matrix = self.distance_matrix(data, metric=metric)
+        binary_epsilon_graph = (distance_matrix <= radius).astype(int)
+        if sparse:
+            from scipy.sparse import csc_matrix
+            return csc_matrix(binary_epsilon_graph)
+        return binary_epsilon_graph
+
+    def weighted_epsilon_graph(self, data, radius=1.0, metric='euclidean'):
+        if metric == 'graph_euclidean' or metric == 'graph_sqeuclidean':
+            from scipy.sparse.csgraph import dijkstra
+            distance_matrix = self.distance_matrix(data, metric=metric[6:])
             distance_matrix[distance_matrix > radius] = np.inf
-            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
-            epsilon_graph = (graph_distance_matrix <= 2 * radius).astype(int)
-        elif ('fermat' in metric) and ('2' in metric):
-            distance_matrix[distance_matrix > radius] = np.inf
-            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
-            epsilon_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
+            weighted_adj_matrix = dijkstra(distance_matrix, directed=False)
         else:
-            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
+            weighted_adj_matrix = gl.weightmatrix.epsilon_ball(data, epsilon=radius, kernel='distance')
 
-        return self._check_sparsity(epsilon_graph, sparse)
+        return weighted_adj_matrix
+
+    def full_graph(self, data, metric='euclidean'):
+        distance_matrix = self.distance_matrix(data, metric=metric)
+        return gl.graph(distance_matrix)
 
 
 class BestParameter:
@@ -141,7 +130,7 @@ class BestParameter:
         self.data = data
         self.budget = budget
 
-        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric='euclidean')
+        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
 
     def _compute_coverage(self, radius):
         """ :return coverage: the ratio of points in the same connected component as a labeled point

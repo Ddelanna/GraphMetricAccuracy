@@ -1,5 +1,5 @@
 import numpy as np
-from HelperFunctions import _set_random_state
+from HelperFunctions import set_random_state
 import graphlearning as gl
 import pandas as pd
 
@@ -8,7 +8,7 @@ import pandas as pd
 def _process_data(data, labels, num_points, random_state):
     """ Ensures that the data and labels are of the correct type and have the same indexing to
         make querying easier later on. """
-    _random_state = _set_random_state(random_state)
+    _random_state = set_random_state(random_state)
 
     labels = pd.Series(labels, index=np.arange(data.shape[0]))
 
@@ -25,7 +25,7 @@ def _process_data(data, labels, num_points, random_state):
 
 
 def create_spiral_data(num_points, dimension=2, random_state=None):
-    _random_state = _set_random_state(random_state)
+    _random_state = set_random_state(random_state)
 
     theta = 2 * np.pi * np.sqrt(np.random.rand(num_points // 2))
 

@@ -1,8 +1,8 @@
 import os
-os.environ['OMP_NUM_THREADS'] = '4'
+os.environ['OMP_NUM_THREADS'] = '1'
 
 import numpy as np
-from HelperFunctions import _set_random_state
+from HelperFunctions import set_random_state
 
 
 class RandomSampling:
@@ -10,17 +10,42 @@ class RandomSampling:
         self.unlabeled_points = unlabeled_points
         self.budget = budget
 
-        _random_state = _set_random_state(random_state)
+        _random_state = set_random_state(random_state)
         self.query_indices = _random_state.choice(self.unlabeled_points.index, budget, replace=False)
 
 
 class KmeansSampling:
-    def __init__(self, unlabeled_points, budget, graph_repr, random_state=None, n_local_trials=None):
+    def __init__(self, unlabeled_points, budget, distances, random_state=None):
         self.unlabeled_points = unlabeled_points
         self.budget = budget
-        self.graph = graph_repr
 
-        self._random_state = _set_random_state(random_state)
+        self._random_state = random_state
+
+        self.query_indices = self._get_query_indices()
+
+    def _get_query_indices(self):
+        import sklearn
+
+        kmeans = sklearn.cluster.KMeans(n_clusters=self.budget,
+                                        init='k-means++',
+                                        random_state=self._random_state).fit(self.unlabeled_points)
+        centroids = kmeans.cluster_centers_
+
+        dists_from_centroids = sklearn.metrics.pairwise.pairwise_distances(self.unlabeled_points, centroids)
+        query_indices = np.argmin(dists_from_centroids, axis=0)
+
+        return query_indices
+
+
+class GraphKmeansSampling:
+    def __init__(self, unlabeled_points, budget, distances, random_state=None, n_local_trials=None):
+        import graphlearning as gl
+
+        self.unlabeled_points = unlabeled_points
+        self.budget = budget
+        self.dist_mat = gl.graph(distances)
+
+        self._random_state = set_random_state(random_state)
         if n_local_trials is None:
             self._n_local_trials = 3 + int(np.log(budget))
         else:
@@ -34,24 +59,26 @@ class KmeansSampling:
         candidates_samples_indices = np.searchsorted(stable_cumsum(dists), rand_vals)
         np.clip(candidates_samples_indices, None, dists.size-1, out=candidates_samples_indices)
 
-        # todo: is this even computing MSE?
         MSE_per_candidate = []  # mean squared error per candidate
         dists_per_candidate = []
-        # todo: compute submatrix one time at the start
         for candidate_sample_idx in candidates_samples_indices:
-            candidate_distance = np.min(self.graph[query_indices + [candidate_sample_idx]], axis=0)
+
+            candidate_distance = self.dist_mat.dijkstra(bdy_set=[candidate_sample_idx], bdy_val=0) ** 2
+            candidate_distance = np.minimum(candidate_distance, dists)
+
             MSE_per_candidate.append(np.sum(candidate_distance))
             dists_per_candidate.append(candidate_distance)
-        min_MSE_idx = np.argmin(MSE_per_candidate)
-        best_sample_point = candidates_samples_indices[min_MSE_idx]
-        dists = dists_per_candidate[min_MSE_idx] ** 2
 
-        return best_sample_point, dists
+        min_MSE_idx = np.argmin(MSE_per_candidate)
+        best_sample_point_idx = candidates_samples_indices[min_MSE_idx]
+        dists = dists_per_candidate[min_MSE_idx]
+
+        return best_sample_point_idx, dists
 
     def _get_query_indices(self):
-        query_indices = [self._random_state.choice(self.unlabeled_points.index)] # initialize query_indices
+        query_indices = [self._random_state.choice(self.unlabeled_points.shape[0])] # initialize query_indices
 
-        dists = self.graph[query_indices]
+        dists = self.dist_mat.dijkstra(bdy_set=query_indices) ** 2
         for _ in range(1, self.budget):
             best_sample_point_idx, dists = self.__find_best_sample_point(query_indices, dists)
             query_indices.append(best_sample_point_idx)
@@ -64,7 +91,7 @@ class ProbCoverSampling:
         self.unlabeled_points = unlabeled_points
         self.budget = budget
         self.adjacency_matrix = adjacency_matrix
-        self._random_state = _set_random_state(random_state)
+        self._random_state = set_random_state(random_state)
 
         self.query_indices = self._get_query_indices()
 
@@ -113,86 +140,3 @@ class ProbCoverSampling:
             self.__update_edges(query_idx)
 
         return query_indices
-
-
-class ConnectedComponentSampling:
-    def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
-        self.unlabeled_points = unlabeled_points
-        self.budget = budget
-        self.adjacency_matrix = adjacency_matrix
-
-        self._random_state = _set_random_state(random_state)
-
-        self._run_algorithm()
-
-    def _find_connected_components(self):
-        """ :return n_components: number of connected components of the graph
-            :return component_labels: corresponding connected component label of each data point
-            :return component_sizes: number of data points in each connected component in order of their component label """
-
-        from scipy.sparse.csgraph import connected_components
-        n_components, component_labels = connected_components(csgraph=self.adjacency_matrix, directed=False,
-                                                              return_labels=True)
-        _, component_sizes = np.unique(component_labels, return_counts=True)
-
-        return n_components, component_labels, component_sizes
-
-    def __sample_from_largest_components(self):
-        """ While we are under budget, sample one point from the k largest connected components
-            until the connected components are too small """
-
-        component_budgets = [0 for _ in range(self.n_components)]
-
-        ordered_components_by_size = sorted(zip(self.component_sizes, np.arange(self.n_components)), reverse=True)
-        for component_size, component_idx in ordered_components_by_size:
-            # keep going until the (clusters are too small) or until (budget is used up)
-            if (component_size <= 10) or (sum(component_budgets) == self.budget):
-                break
-            component_budgets[component_idx] += 1
-
-        return component_budgets
-
-    def _allot_component_budgets(self):
-        num_points = self.unlabeled_points.shape[0]
-
-        # ensure all large components have budget >= 1
-        component_budgets = self.__sample_from_largest_components()
-
-        # allot budget proportionally to component size
-        from math import floor
-        remaining_budget = self.budget - sum(component_budgets)
-        for idx in range(self.n_components):
-            component_budgets[idx] += floor(self.component_sizes[idx] / num_points * remaining_budget)
-
-        # if there is leftover budget, sample randomly proportional to size
-        if sum(component_budgets) < self.budget:
-            distribution = [self.component_sizes[idx] / num_points for idx in range(self.n_components)]
-            for _ in range(self.budget - sum(component_budgets)):
-                component_budgets[self._random_state.choice(np.arange(self.n_components), p=distribution)] += 1
-
-        return component_budgets
-
-    def _apply_probcover(self, component_label):
-        """ Split the data based on connected component and use ProbCover to determine which points to label
-            within each component. """
-        component_data_indices = np.where(self.component_labels == component_label)[0]
-        sub_adjacency_matrix = self.adjacency_matrix[np.ix_(component_data_indices, component_data_indices)]
-        query_indices = ProbCoverSampling(self.unlabeled_points.iloc[component_data_indices],
-                                          budget=self.component_budgets[component_label],
-                                          adjacency_matrix=sub_adjacency_matrix).query_indices
-        return query_indices
-
-    def _run_algorithm(self):
-        from joblib import Parallel, delayed
-        from itertools import chain
-
-        self.n_components, self.component_labels, self.component_sizes = self._find_connected_components()
-        self.component_budgets = self._allot_component_budgets()
-        self.query_indices = Parallel(n_jobs=10)(delayed(self._apply_probcover)(comp_label) for comp_label in range(self.n_components)
-                                        if self.component_budgets[comp_label] != 0)
-        self.query_indices = list(chain.from_iterable(self.query_indices)) # flatten the list
-
-
-
-
-

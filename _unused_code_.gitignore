@@ -256,3 +256,48 @@ if __name__ == '__main__':
     for data_point in results:
         score_df = pd.concat([score_df, data_point])
     score_df.to_csv(f'[test]_scores.csv', index=False)
+
+ # PLOT DATA
+
+     @staticmethod
+    def plot_data(data_points, labeled_points, oracle, labels, predicted_labels):
+        colors = ["blue", "orange", "green", "purple", "black"]
+
+        data_points = np.array(data_points)
+        labeled_points = np.array(labeled_points)
+
+        for i in range(len(colors)):
+            plt.scatter(labeled_points[labels == i, 0], labeled_points[labels == i, 1],
+                        color=colors[i], s=30.0, alpha=0.5)
+
+        for i in range(len(colors)):
+            plt.scatter(data_points[oracle == i, 0], data_points[oracle == i, 1],
+                        color=colors[i], label=f"Cluster{i}", s=1.0)
+
+        for i in range(len(predicted_labels)):
+            if predicted_labels[i] != oracle[i]:
+                plt.scatter(data_points[i, 0], data_points[i, 1],
+                            color='red', s=30.0, alpha=0.5)
+
+        plt.show()
+
+
+    @staticmethod
+    def plot_connected_components(data_by_component, component_sizes):
+        from matplotlib import pyplot as plt
+        colors = plt.cm.gist_rainbow(np.linspace(0, 1, 10))
+        fig, ax = plt.subplots()
+        color_idx = 0
+
+        for component_label in range(len(component_sizes)):
+            if component_sizes[component_label] > 10:
+                ax.scatter(np.array(data_by_component[component_label])[:, 0],
+                           np.array(data_by_component[component_label])[:, 1],
+                           color=colors[color_idx], s=1.0)
+                color_idx += 1
+            else:
+                ax.scatter(np.array(data_by_component[component_label])[:, 0],
+                           np.array(data_by_component[component_label])[:, 1],
+                           color='black', s=1.0)
+
+        fig.show()

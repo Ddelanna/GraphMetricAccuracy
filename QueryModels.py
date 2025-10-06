@@ -34,7 +34,7 @@ class KmeansSampling:
         dists_from_centroids = sklearn.metrics.pairwise.pairwise_distances(self.unlabeled_points, centroids)
         query_indices = np.argmin(dists_from_centroids, axis=0)
 
-        return query_indices
+        return self.unlabeled_points.index[query_indices]
 
 
 class GraphKmeansSampling:
@@ -53,34 +53,34 @@ class GraphKmeansSampling:
 
         self.query_indices = self._get_query_indices()
 
-    def __find_best_sample_point(self, query_indices, dists):
-        rand_vals = self._random_state.uniform(size=self._n_local_trials) * np.sum(dists)
+    def __find_best_sample_point(self, dists_from_query_points):
+        rand_vals = self._random_state.uniform(size=self._n_local_trials) * np.sum(dists_from_query_points)
         from sklearn.utils.extmath import stable_cumsum
-        candidates_samples_indices = np.searchsorted(stable_cumsum(dists), rand_vals)
-        np.clip(candidates_samples_indices, None, dists.size-1, out=candidates_samples_indices)
+        candidates_samples_indices = np.searchsorted(stable_cumsum(dists_from_query_points), rand_vals)
+        np.clip(candidates_samples_indices, None, dists_from_query_points.size - 1, out=candidates_samples_indices)
 
-        MSE_per_candidate = []  # mean squared error per candidate
-        dists_per_candidate = []
+        MSE_per_candidate_set = []  # mean squared error per candidate
+        dists_per_candidate_set = []
         for candidate_sample_idx in candidates_samples_indices:
 
-            candidate_distance = self.dist_mat.dijkstra(bdy_set=[candidate_sample_idx], bdy_val=0) ** 2
-            candidate_distance = np.minimum(candidate_distance, dists)
+            candidate_set_distance = self.dist_mat.dijkstra(bdy_set=[candidate_sample_idx], bdy_val=0) ** 2
+            candidate_set_distance = np.minimum(candidate_set_distance, dists_from_query_points)
 
-            MSE_per_candidate.append(np.sum(candidate_distance))
-            dists_per_candidate.append(candidate_distance)
+            MSE_per_candidate_set.append(np.sum(candidate_set_distance))
+            dists_per_candidate_set.append(candidate_set_distance)
 
-        min_MSE_idx = np.argmin(MSE_per_candidate)
+        min_MSE_idx = np.argmin(MSE_per_candidate_set)
         best_sample_point_idx = candidates_samples_indices[min_MSE_idx]
-        dists = dists_per_candidate[min_MSE_idx]
+        dists_from_query_points = dists_per_candidate_set[min_MSE_idx]
 
-        return best_sample_point_idx, dists
+        return best_sample_point_idx, dists_from_query_points
 
     def _get_query_indices(self):
         query_indices = [self._random_state.choice(self.unlabeled_points.shape[0])] # initialize query_indices
 
-        dists = self.dist_mat.dijkstra(bdy_set=query_indices) ** 2
+        dists_from_query_points = self.dist_mat.dijkstra(bdy_set=query_indices) ** 2
         for _ in range(1, self.budget):
-            best_sample_point_idx, dists = self.__find_best_sample_point(query_indices, dists)
+            best_sample_point_idx, dists_from_query_points = self.__find_best_sample_point(dists_from_query_points)
             query_indices.append(best_sample_point_idx)
 
         return [self.unlabeled_points.index[idx] for idx in query_indices]
@@ -140,3 +140,4 @@ class ProbCoverSampling:
             self.__update_edges(query_idx)
 
         return query_indices
+

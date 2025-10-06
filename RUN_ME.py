@@ -1,4 +1,5 @@
-from _compile_ import Pipeline
+from _compile_ import SummaryResults, SummaryPlot
+
 
 if __name__ == '__main__':
     # todo: how to find best knn value?
@@ -6,14 +7,5 @@ if __name__ == '__main__':
     # completed: make CCS a separate class before running QueryModels
 
 
-    Pipeline()
-
-
-
-
-
-
-
-
-
-
+    # SummaryResults()
+    SummaryPlot("results/[spiral]_average_scores.csv")

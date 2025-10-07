@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
-import graphlearning as gl
 
 
-def _set_random_state(random_state):
+def set_random_state(random_state):
     if isinstance(random_state, int):
         return np.random.default_rng(random_state)
     return np.random.default_rng(np.random.random_integers(low=0, high=10000))
@@ -12,29 +11,7 @@ def _set_random_state(random_state):
 
 class Plots:
     @staticmethod
-    def plot_data(data_points, labeled_points, oracle, labels, predicted_labels):
-        colors = ["blue", "orange", "green", "purple", "black"]
-
-        data_points = np.array(data_points)
-        labeled_points = np.array(labeled_points)
-
-        for i in range(len(colors)):
-            plt.scatter(labeled_points[labels == i, 0], labeled_points[labels == i, 1],
-                        color=colors[i], s=30.0, alpha=0.5)
-
-        for i in range(len(colors)):
-            plt.scatter(data_points[oracle == i, 0], data_points[oracle == i, 1],
-                        color=colors[i], label=f"Cluster{i}", s=1.0)
-
-        for i in range(len(predicted_labels)):
-            if predicted_labels[i] != oracle[i]:
-                plt.scatter(data_points[i, 0], data_points[i, 1],
-                            color='red', s=30.0, alpha=0.5)
-
-        plt.show()
-
-    @staticmethod
-    def plot_confusion_matrix(cm, title):
+    def plot_confusion_matrix(cm, title=''):
         cm_display = sklearn.metrics.ConfusionMatrixDisplay(cm)
         cm_display.plot()
         plt.title(title)
@@ -50,87 +27,130 @@ class Plots:
         plt.title(title)
         plt.show()
 
-    @staticmethod
-    def plot_connected_components(data_by_component, component_sizes):
-        from matplotlib import pyplot as plt
-        colors = plt.cm.gist_rainbow(np.linspace(0, 1, 10))
-        fig, ax = plt.subplots()
-        color_idx = 0
-
-        for component_label in range(len(component_sizes)):
-            if component_sizes[component_label] > 10:
-                ax.scatter(np.array(data_by_component[component_label])[:, 0],
-                           np.array(data_by_component[component_label])[:, 1],
-                           color=colors[color_idx], s=1.0)
-                color_idx += 1
-            else:
-                ax.scatter(np.array(data_by_component[component_label])[:, 0],
-                           np.array(data_by_component[component_label])[:, 1],
-                           color='black', s=1.0)
-
-        fig.show()
-
 
 class AdjacencyMatrices:
+    @staticmethod
+    def _check_sparsity(matrix, sparse):
+        if not sparse:
+            return matrix
+        from scipy.sparse import csc_matrix
+        return csc_matrix(matrix)
+
     @staticmethod
     def distance_matrix(data, metric='euclidean'):
         from scipy.spatial.distance import squareform, pdist
 
-        if 'fermat' in metric: # should be in format 'pfermat' where p is power
-            p = int(metric[0])
-            distance_matrix = squareform(pdist(data, metric='euclidean')) ** p
-            from scipy.sparse.csgraph import dijkstra
-            distance_matrix = dijkstra(distance_matrix, directed=False)
+        if (metric == 'euclidean') or ('1' in metric):
+            return squareform(pdist(data, metric='euclidean'))
+        elif (metric == 'sqeuclidean') or ('2' in metric):
+            return squareform(pdist(data, metric='sqeuclidean'))
         else:
-            distance_matrix = squareform(pdist(data, metric=metric))
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
 
-        return distance_matrix
+    def knn_graph(self, data, k=1, radius=1.0, metric='euclidean', sparse=True):
+        from sklearn.neighbors import kneighbors_graph
+        from scipy.sparse.csgraph import dijkstra
 
-    @staticmethod
-    def knn_graph(data, k=1, metric='euclidean', sparse=True):
-        knn_graph = gl.weightmatrix.knn(data.to_numpy(), k=k, kernel='distance', similarity='euclidean').toarray()
-        knn_graph[knn_graph > 0.0] = 1
+        if metric == 'euclidean':
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='connectivity').toarray()
+            knn_graph = np.maximum(knn_graph, knn_graph.transpose())
+        elif ('fermat' in metric) and ('1' in metric):
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='euclidean', mode='distance').toarray()
+            knn_graph [knn_graph  == 0] = np.inf
+            np.fill_diagonal(knn_graph, 0)
+            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
+            graph_distance_matrix = dijkstra(knn_graph, directed=False)
+            knn_graph = (graph_distance_matrix <= 2 * radius).astype(int)
+        elif ('fermat' in metric) and ('2' in metric):
+            knn_graph = kneighbors_graph(data, n_neighbors=k, metric='sqeuclidean', mode='distance').toarray()
+            knn_graph[knn_graph == 0] = np.inf
+            np.fill_diagonal(knn_graph, 0)
+            knn_graph = np.minimum(knn_graph, knn_graph.transpose())
+            graph_distance_matrix = dijkstra(knn_graph, directed=False)
+            knn_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
+        else:
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
 
-        # from sklearn.neighbors import kneighbors_graph
-        # knn_graph = kneighbors_graph(data, n_neighbors=k, metric=metric, mode='connectivity')
-        # print(knn_graph)
+        return self._check_sparsity(knn_graph, sparse)
 
-        if sparse:
-            from scipy.sparse import csc_matrix
-            return csc_matrix(knn_graph)
+    def epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
+        from scipy.sparse.csgraph import dijkstra
+        distance_matrix = self.distance_matrix(data, metric='euclidean')
 
-        return knn_graph
-
-    def binary_epsilon_graph(self, data, radius=1.0, metric='euclidean', sparse=True):
-        distance_matrix = self.distance_matrix(data, metric=metric)
-        binary_epsilon_graph = (distance_matrix <= radius).astype(int)
-        if sparse:
-            from scipy.sparse import csc_matrix
-            return csc_matrix(binary_epsilon_graph)
-        return binary_epsilon_graph
-
-    def weighted_epsilon_graph(self, data, radius=1.0, metric='euclidean'):
-        if metric == 'graph_euclidean' or metric == 'graph_sqeuclidean':
-            from scipy.sparse.csgraph import dijkstra
-            distance_matrix = self.distance_matrix(data, metric=metric[6:])
+        if metric == 'euclidean':
+            epsilon_graph = (distance_matrix <= radius).astype(int)
+        elif ('fermat' in metric) and ('1' in metric):
             distance_matrix[distance_matrix > radius] = np.inf
-            weighted_adj_matrix = dijkstra(distance_matrix, directed=False)
+            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
+            epsilon_graph = (graph_distance_matrix <= 2 * radius).astype(int)
+        elif ('fermat' in metric) and ('2' in metric):
+            distance_matrix[distance_matrix > radius] = np.inf
+            graph_distance_matrix = dijkstra(distance_matrix, directed=False)
+            epsilon_graph = (graph_distance_matrix <= 2 * radius**2).astype(int)
         else:
-            weighted_adj_matrix = gl.weightmatrix.epsilon_ball(data, epsilon=radius, kernel='distance')
+            raise ValueError('Metric must be either \'euclidean\' or \'pfermat\'.')
 
-        return weighted_adj_matrix
+        return self._check_sparsity(epsilon_graph, sparse)
 
-    def full_graph(self, data, metric='euclidean'):
-        distance_matrix = self.distance_matrix(data, metric=metric)
-        return gl.graph(distance_matrix)
-
+# class BestParameter:
+#     def __init__(self, data, budget, metric='euclidean'):
+#         self.data = data
+#         self.budget = budget
+#
+#         self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
+#
+#     def _compute_coverage(self, radius):
+#         """ :return coverage: the ratio of points in the same connected component as a labeled point
+#             to the total number of points """
+#
+#         adjacency_matrix = (self.distance_matrix <= radius).astype(int)
+#         from scipy.sparse.csgraph import connected_components
+#         n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
+#         _, component_sizes = np.unique(component_labels, return_counts=True)
+#         ordered_components_sizes = sorted(component_sizes, reverse=True)
+#         coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
+#
+#         return coverage
+#
+#     def best_radius(self, alpha):
+#         diameter = np.max(self.distance_matrix)
+#         tolerance = 0.01  # todo : how to determine tolerance?
+#         radius_lowerbound, radius_upperbound = 0, diameter
+#
+#         while (radius_upperbound - radius_lowerbound) > tolerance:
+#
+#             radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
+#
+#             coverage = self._compute_coverage(radius_to_compute)
+#             if coverage > alpha:
+#                 radius_upperbound = radius_to_compute
+#             else:
+#                 radius_lowerbound = radius_to_compute
+#
+#         best_radius = (radius_lowerbound + radius_upperbound) / 2
+#         return best_radius
 
 class BestParameter:
-    def __init__(self, data, budget, metric='euclidean'):
+    def __init__(self, data, budget):
         self.data = data
         self.budget = budget
 
-        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
+        Sum_of_squared_distances = []
+        K = range(1, 15)
+        for k in K:
+            km = sklearn.cluster.KMeans(n_clusters=k)
+            km = km.fit(self.data)
+            Sum_of_squared_distances.append(km.inertia_)
+
+        plt.plot(K, Sum_of_squared_distances, 'bx-')
+        plt.xlabel('k')
+        plt.ylabel('Sum_of_squared_distances')
+        plt.title('Elbow Method For Optimal k')
+        plt.show()
+
+        self.optimal_n_components = 5
+
+        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric='euclidean')
 
     def _compute_coverage(self, radius):
         """ :return coverage: the ratio of points in the same connected component as a labeled point
@@ -138,12 +158,13 @@ class BestParameter:
 
         adjacency_matrix = (self.distance_matrix <= radius).astype(int)
         from scipy.sparse.csgraph import connected_components
-        n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
-        _, component_sizes = np.unique(component_labels, return_counts=True)
-        ordered_components_sizes = sorted(component_sizes, reverse=True)
-        coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
+        n_components = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=False)
 
-        return coverage
+        # _, component_sizes = np.unique(component_labels, return_counts=True)
+        # ordered_component_sizes = sorted(component_sizes, reverse=True)
+        # coverage = sum(ordered_component_sizes[:self.budget]) / self.data.shape[0]
+
+        return n_components
 
     def best_radius(self, alpha):
         diameter = np.max(self.distance_matrix)
@@ -154,14 +175,79 @@ class BestParameter:
 
             radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
 
-            coverage = self._compute_coverage(radius_to_compute)
-            if coverage > alpha:
-                radius_upperbound = radius_to_compute
-            else:
+            n_components = self._compute_coverage(radius_to_compute)
+            if n_components > self.optimal_n_components:
                 radius_lowerbound = radius_to_compute
+            else:
+                radius_upperbound = radius_to_compute
 
         best_radius = (radius_lowerbound + radius_upperbound) / 2
         return best_radius
+
+
+class FindConnectedComponents:
+    def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
+        self.unlabeled_points = unlabeled_points
+        self.budget = budget
+        self.adjacency_matrix = adjacency_matrix
+        self._random_state = set_random_state(random_state)
+
+        self.n_components, self.component_labels = self._find_connected_components()
+        self.component_budgets = self._allot_component_budgets()
+
+    def _find_connected_components(self):
+        """ :return n_components: number of connected components of the graph
+            :return component_labels: corresponding connected component label of each data point """
+
+        from scipy.sparse.csgraph import connected_components
+        n_components, component_labels = connected_components(csgraph=self.adjacency_matrix, directed=False,
+                                                              return_labels=True)
+
+        return n_components, component_labels
+
+    def __sample_from_largest_components(self, component_sizes):
+        """ While we are under budget, sample one point from the k largest connected components
+            until the connected components are too small """
+
+        component_budgets = [0 for _ in range(self.n_components)]
+        large_component_index = []
+
+        ordered_components_by_size = sorted(zip(component_sizes, np.arange(self.n_components)), reverse=True)
+        for component_size, component_idx in ordered_components_by_size:
+            # keep going until the (clusters are too small) or until (budget is used up)
+            if (component_size <= 10) or (sum(component_budgets) == self.budget):
+                break
+            component_budgets[component_idx] += 1
+            large_component_index.append(component_idx)
+
+        return component_budgets, large_component_index
+
+    def _allot_component_budgets(self):
+        """ :return component_budgets: the budget allotted for each component in the order of component labels """
+
+        num_points = self.unlabeled_points.shape[0]
+        _, component_sizes = np.unique(self.component_labels, return_counts=True)
+
+        # ensure all large components have budget >= 1
+        component_budgets, large_component_index = self.__sample_from_largest_components(component_sizes)
+
+        # allot budget proportionally to component size
+        from math import floor
+        remaining_budget = self.budget - sum(component_budgets)
+        for idx in range(self.n_components):
+            component_budgets[idx] += floor(component_sizes[idx] / num_points * remaining_budget)
+
+        # if there is leftover budget, sample randomly proportional to size
+        total_points_in_large_components = sum([component_sizes[idx] for idx in large_component_index])
+        if sum(component_budgets) < self.budget:
+            distribution = [component_sizes[idx] / total_points_in_large_components for idx in large_component_index]
+            for _ in range(self.budget - sum(component_budgets)):
+                component_budgets[self._random_state.choice(large_component_index, p=distribution)] += 1
+
+        return component_budgets
+
+
+
 
 
 

@@ -43,7 +43,8 @@ class GraphMetricAccuracy:
 
         self._radius = radius
         if radius is None:
-            self._radius = HelperFunctions.BestParameter(unlabeled_points, len(self.query_indices)).best_radius(0.95)
+            radius = HelperFunctions.BestParameter(unlabeled_points).best_radius(0.975)
+            self._radius = radius if '2' not in metric else radius**2
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.labels = self.oracle[self.query_indices]

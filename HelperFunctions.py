@@ -93,9 +93,9 @@ class AdjacencyMatrices:
         return self._check_sparsity(epsilon_graph, sparse)
 
 # class BestParameter:
-#     def __init__(self, data, budget, metric='euclidean'):
+#     def __init__(self, data, metric='euclidean'):
 #         self.data = data
-#         self.budget = budget
+#         self.budget = 10
 #
 #         self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
 #
@@ -130,59 +130,142 @@ class AdjacencyMatrices:
 #         best_radius = (radius_lowerbound + radius_upperbound) / 2
 #         return best_radius
 
+
 class BestParameter:
-    def __init__(self, data, budget):
+    def __init__(self, data):
         self.data = data
-        self.budget = budget
-
-        Sum_of_squared_distances = []
-        K = range(1, 15)
-        for k in K:
-            km = sklearn.cluster.KMeans(n_clusters=k)
-            km = km.fit(self.data)
-            Sum_of_squared_distances.append(km.inertia_)
-
-        plt.plot(K, Sum_of_squared_distances, 'bx-')
-        plt.xlabel('k')
-        plt.ylabel('Sum_of_squared_distances')
-        plt.title('Elbow Method For Optimal k')
-        plt.show()
-
-        self.optimal_n_components = 5
-
-        self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric='euclidean')
-
-    def _compute_coverage(self, radius):
-        """ :return coverage: the ratio of points in the same connected component as a labeled point
-            to the total number of points """
-
-        adjacency_matrix = (self.distance_matrix <= radius).astype(int)
-        from scipy.sparse.csgraph import connected_components
-        n_components = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=False)
-
-        # _, component_sizes = np.unique(component_labels, return_counts=True)
-        # ordered_component_sizes = sorted(component_sizes, reverse=True)
-        # coverage = sum(ordered_component_sizes[:self.budget]) / self.data.shape[0]
-
-        return n_components
 
     def best_radius(self, alpha):
-        diameter = np.max(self.distance_matrix)
-        tolerance = 0.01  # todo : how to determine tolerance?
-        radius_lowerbound, radius_upperbound = 0, diameter
+        from scipy.spatial.distance import pdist
+        distance_matrix = pdist(self.data) # todo: sparse matrix
 
-        while (radius_upperbound - radius_lowerbound) > tolerance:
+        from scipy.cluster.hierarchy import linkage
+        agglomerative_clustering = linkage(distance_matrix, 'single')
 
-            radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
+        cluster_sizes = {i: 1 for i in range(self.data.shape[0])}
+        for step, (i, j, distance, _) in enumerate(agglomerative_clustering):
+            new_cluster_id = self.data.shape[0] + step
+            cluster_sizes[new_cluster_id] = cluster_sizes[i] + cluster_sizes[j]
+            cluster_sizes.pop(i)
+            cluster_sizes.pop(j)
 
-            n_components = self._compute_coverage(radius_to_compute)
-            if n_components > self.optimal_n_components:
-                radius_lowerbound = radius_to_compute
-            else:
-                radius_upperbound = radius_to_compute
+            coverage = sum(cluster_size for cluster_size in cluster_sizes.values() if cluster_size >= 10) / self.data.shape[0]
 
-        best_radius = (radius_lowerbound + radius_upperbound) / 2
-        return best_radius
+            if coverage >= alpha:
+                return distance
+
+#
+# class BestParameter:
+#     def __init__(self, data, metric='euclidean', budget=None, num_classes=None):
+#         self.data = data
+#         self.budget = min(budget, num_classes+10)
+#
+#         self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
+#
+#     def _compute_coverage(self, radius):
+#         """ :return coverage: the ratio of points in the same connected component as a labeled point
+#             to the total number of points """
+#
+#         adjacency_matrix = (self.distance_matrix <= radius).astype(int)
+#         from scipy.sparse.csgraph import connected_components
+#         n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
+#         _, component_sizes = np.unique(component_labels, return_counts=True)
+#         ordered_components_sizes = sorted(component_sizes, reverse=True)
+#         coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
+#
+#         return coverage
+#
+#     def best_radius(self, alpha):
+#         diameter = np.max(self.distance_matrix)
+#         tolerance = 0.01  # todo : how to determine tolerance?
+#         radius_lowerbound, radius_upperbound = 0, diameter
+#
+#         while (radius_upperbound - radius_lowerbound) > tolerance:
+#
+#             radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
+#
+#             coverage = self._compute_coverage(radius_to_compute)
+#             if coverage > alpha:
+#                 radius_upperbound = radius_to_compute
+#             else:
+#                 radius_lowerbound = radius_to_compute
+#
+#         best_radius = (radius_lowerbound + radius_upperbound) / 2
+#         return best_radius
+
+# class FindConnectedComponents:
+#     def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
+#         self.unlabeled_points = unlabeled_points
+#         self._max_budget = budget
+#         self.budget = budget
+#         self.adjacency_matrix = adjacency_matrix
+#         self._random_state = set_random_state(random_state)
+#
+#         self.n_components, self.component_labels = self._find_connected_components()
+#         self.component_budgets = self._allot_component_budgets()
+#
+#     def _find_connected_components(self):
+#         """ :return n_components: number of connected components of the graph
+#             :return component_labels: corresponding connected component label of each data point """
+#
+#         from scipy.sparse.csgraph import connected_components
+#         n_components, component_labels = connected_components(csgraph=self.adjacency_matrix, directed=False,
+#                                                               return_labels=True)
+#
+#         return n_components, component_labels
+#
+#     def __sample_from_largest_components(self, component_sizes):
+#         """ While we are under budget, sample one point from the k largest connected components
+#             until the connected components are too small """
+#
+#         component_budgets = [0 for _ in range(self.n_components)]
+#         large_component_index = []
+#
+#         ordered_components_by_size = sorted(zip(component_sizes, np.arange(self.n_components)), reverse=True)
+#         for component_size, component_idx in ordered_components_by_size:
+#             # keep going until the (clusters are too small) or until (budget is used up)
+#             if (component_size <= 10) or (sum(component_budgets) == self._max_budget):
+#                 break
+#             component_budgets[component_idx] += 1
+#             large_component_index.append(component_idx)
+#
+#         return component_budgets, large_component_index
+#
+#     def _allot_component_budgets(self, budget, component_):
+#         base_component_budgets = (component_sizes >= 10).astype(int)
+#         ordered_component_sizes = sorted(enumerate(component_sizes), reverse=True)
+#         large_component_index = np.flatnonzero(base_component_budgets)
+#         component_budgets = base_component_budgets[large_component_index]
+#
+#         from math import floor
+#         remaining_budget = self._max_budget - sum(component_budgets)
+#         for idx in range(self.n_components):
+#             component_budgets[idx] += floor(component_size_proportion * remaining_budget)
+#
+#         # if there is leftover budget, sample randomly proportional to size
+#         total_points_in_large_components = sum([component_sizes[idx] for idx in large_component_index])
+#         if sum(max_component_budgets) < self._max_budget:
+#             distribution = [component_sizes[idx] / total_points_in_large_components for idx in
+#                             large_component_index]
+#             for _ in range(self._max_budget - sum(max_component_budgets)):
+#                 max_component_budgets[self._random_state.choice(large_component_index, p=distribution)] += 1
+#
+#
+#
+#     def _compute_all_component_budgets(self):
+#         """ :return component_budgets: the budget allotted for each component in the order of component labels """
+#
+#         num_points = self.unlabeled_points.shape[0]
+#         _, component_sizes = np.unique(self.component_labels, return_counts=True)
+#         component_size_proportion = component_sizes / num_points
+#
+#
+#         for budget in range(self._max_budget):
+#             self.component_budgets[budget] = self._allot_component_budgets(budget, component_size_proportion)
+#
+#
+#
+#         return max_component_budgets
 
 
 class FindConnectedComponents:
@@ -245,14 +328,4 @@ class FindConnectedComponents:
                 component_budgets[self._random_state.choice(large_component_index, p=distribution)] += 1
 
         return component_budgets
-
-
-
-
-
-
-
-
-
-
 

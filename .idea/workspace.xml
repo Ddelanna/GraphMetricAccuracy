@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="AutoImportSettings">
-    <option name="autoReloadType" value="SELECTIVE" />
-  </component>
   <component name="ChangeListManager">
-    <list default="true" id="e5cc33c7-59a7-4479-a10f-b7874a6d1fd9" name="Changes" comment="compileCode_v2.0">
+    <list default="true" id="15adc052-9a8c-4f66-8122-12a358cfac6e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_9_11_2025_12_34_PM_[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_9_11_2025_12_34_PM__Changes_.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PredictionMethods.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/SamplingAlgorithms.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,39 +16,24 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_BRANCH_BY_REPOSITORY">
-      <map>
-        <entry key="$PROJECT_DIR$" value="compileCode_v1.0" />
-      </map>
-    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory">{
-  &quot;lastFilter&quot;: {
-    &quot;state&quot;: &quot;OPEN&quot;,
-    &quot;assignee&quot;: &quot;Ddelanna&quot;
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Ddelanna"
   }
-}</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Ddelanna/GraphMetricAccuracy.git&quot;,
-    &quot;accountId&quot;: &quot;fd1730a2-200e-4cc0-9a04-2c8b935f5af4&quot;
-  },
-  &quot;recentNewPullRequestHead&quot;: {
-    &quot;server&quot;: {
-      &quot;useHttp&quot;: false,
-      &quot;host&quot;: &quot;github.com&quot;,
-      &quot;port&quot;: null,
-      &quot;suffix&quot;: null
-    },
-    &quot;owner&quot;: &quot;Ddelanna&quot;,
-    &quot;repository&quot;: &quot;GraphMetricAccuracy&quot;
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Ddelanna/GraphMetricAccuracy",
+    "accountId": "fd1730a2-200e-4cc0-9a04-2c8b935f5af4"
   }
-}</component>
-  <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 7
-}</component>
-  <component name="ProjectId" id="32W31vYsgHxr7epykLr1kCk0ONy" />
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 7
+}]]></component>
+  <component name="ProjectId" id="34qhDKBV7po9qPqX1KAiVlZqKrq" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -58,21 +44,9 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/dodel/PycharmProjects/GraphMetricAccuracy",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\dodel\PycharmProjects\GraphMetricAccuracy" />
-    </key>
-  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -83,85 +57,16 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="e5cc33c7-59a7-4479-a10f-b7874a6d1fd9" name="Changes" comment="" />
-      <created>1757522289455</created>
+      <changelist id="15adc052-9a8c-4f66-8122-12a358cfac6e" name="Changes" comment="" />
+      <created>1761946888338</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1757522289455</updated>
-      <workItem from="1757522290601" duration="852000" />
-      <workItem from="1757608344975" duration="1547000" />
-      <workItem from="1758168921440" duration="895000" />
-      <workItem from="1758169829627" duration="266000" />
-      <workItem from="1758644128115" duration="1315000" />
+      <updated>1761946888338</updated>
+      <workItem from="1761946889612" duration="39000" />
     </task>
-    <task id="LOCAL-00001" summary="compileCode_v1.0">
-      <option name="closed" value="true" />
-      <created>1757524079452</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1757524079452</updated>
-    </task>
-    <task id="LOCAL-00002" summary="compileCode_v1.0">
-      <option name="closed" value="true" />
-      <created>1757524108289</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1757524108289</updated>
-    </task>
-    <task id="LOCAL-00003" summary="compileCode_v2.0">
-      <option name="closed" value="true" />
-      <created>1757608549196</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1757608549197</updated>
-    </task>
-    <task id="LOCAL-00004" summary="compileCode_v2.0">
-      <option name="closed" value="true" />
-      <created>1757608605052</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1757608605052</updated>
-    </task>
-    <task id="LOCAL-00005" summary="compileCode_v2.0">
-      <option name="closed" value="true" />
-      <created>1757608690069</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1757608690069</updated>
-    </task>
-    <task id="LOCAL-00006" summary="compileCode_v2.0">
-      <option name="closed" value="true" />
-      <created>1758644317249</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1758644317249</updated>
-    </task>
-    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
-  </component>
-  <component name="Vcs.Log.Tabs.Properties">
-    <option name="TAB_STATES">
-      <map>
-        <entry key="MAIN">
-          <value>
-            <State />
-          </value>
-        </entry>
-      </map>
-    </option>
-  </component>
-  <component name="VcsManagerConfiguration">
-    <MESSAGE value="compileCode_v1.0" />
-    <MESSAGE value="compileCode_v2.0" />
-    <option name="LAST_COMMIT_MESSAGE" value="compileCode_v2.0" />
   </component>
 </project>

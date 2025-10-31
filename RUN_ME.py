@@ -2,10 +2,13 @@ from _compile_ import SummaryResults, SummaryPlot
 
 
 if __name__ == '__main__':
-    # todo: how to find best knn value?
     # todo: check for duplicate situations
-    # completed: make CCS a separate class before running QueryModels
+    # todo: look at label impurity withing a component
+    # todo: make the algorithm suggest points to label in order
+    # todo: rewrite BestParameter to take in a metric
 
 
-    # SummaryResults()
-    SummaryPlot("results/[spiral]_average_scores.csv")
+
+    SummaryResults()
+    for data in ['spiral']:
+        SummaryPlot(f"results/[{data}]_average_scores.csv")

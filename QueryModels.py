@@ -2,7 +2,7 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 
 import numpy as np
-from HelperFunctions import set_random_state
+from HelperFunctions import set_random_state, AdjacencyMatrices
 
 
 class RandomSampling:
@@ -21,6 +21,10 @@ class KmeansSampling:
 
         self._random_state = random_state
 
+        if self.budget == 1:
+            distances = AdjacencyMatrices.distance_matrix(self.unlabeled_points, metric='sqeuclidean')
+            MSE = np.sum(distances) # mean squared error
+            self.query_indices = [self.unlabeled_points.index[np.argmin(MSE)]]
         self.query_indices = self._get_query_indices()
 
     def _get_query_indices(self):
@@ -51,7 +55,12 @@ class GraphKmeansSampling:
         else:
             self._n_local_trials = n_local_trials
 
-        self.query_indices = self._get_query_indices()
+        if self.budget == 1:
+            graph_distances = self.dist_mat.dijkstra(bdy_set=np.arange(self.unlabeled_points.shape[0])) ** 2
+            MSE = np.sum(graph_distances) # mean squared error
+            self.query_indices = [self.unlabeled_points.index[np.argmin(MSE)]]
+        else:
+            self.query_indices = self._get_query_indices()
 
     def __find_best_sample_point(self, dists_from_query_points):
         rand_vals = self._random_state.uniform(size=self._n_local_trials) * np.sum(dists_from_query_points)
@@ -83,7 +92,7 @@ class GraphKmeansSampling:
             best_sample_point_idx, dists_from_query_points = self.__find_best_sample_point(dists_from_query_points)
             query_indices.append(best_sample_point_idx)
 
-        return [self.unlabeled_points.index[idx] for idx in query_indices]
+        return self.unlabeled_points.index[query_indices]
 
 
 class ProbCoverSampling:

@@ -14,9 +14,9 @@ import pandas as pd
 class SummaryResults:
     def __init__(self):
         self._num_points = 1000  # num_points = None gets the entire data set
-        self._num_iters = 5 # number of runs to average the score over
+        self._num_iters = 2 # number of runs to average the score over
         self._data_generators = [(create_spiral_data, 'spiral')] # (generator, file_name)
-        self._budgets = [5, 10, 15, 20, 30]
+        self._budgets = [10, 20, 30, 40]
 
         self.create_score_csv()
 
@@ -39,14 +39,15 @@ class SummaryResults:
         return list(search_grid)
 
     @staticmethod
-    def __build_graph(data, budget, graph_method, metric):
+    def __build_graph(data, graph_method, metric, budget=None, num_classes=None, alpha=1.0):
         if graph_method == 'full':
             return AdjacencyMatrices().distance_matrix(data, metric=metric)
         elif graph_method == 'epsilon':
-            radius = BestParameter(data, budget).best_radius(alpha=0.95)
+            radius = BestParameter(data).best_radius(alpha=alpha)
+            radius = radius if '2' not in metric else radius**2
             return AdjacencyMatrices().epsilon_graph(data, radius=radius, metric=metric)
         elif graph_method == 'knn':
-            k = 5 # todo what to do when data set is too small?
+            k = 5 # todo: find best k
             return AdjacencyMatrices().knn_graph(data, k=k, metric=metric)
         else:
             return None
@@ -54,7 +55,7 @@ class SummaryResults:
     def _apply_query_model_to_component(self, seed, data, query_model, graph_method, metric, CC, component_label):
         component_data = data[CC.component_labels == component_label]
         component_budget = CC.component_budgets[component_label]
-        component_graph = self.__build_graph(component_data, component_budget, graph_method, metric)
+        component_graph = self.__build_graph(component_data, graph_method, metric, budget=component_budget, num_classes=1, alpha=0.975) # todo: ask about this
         query_indices = query_model(component_data, component_budget, component_graph, random_state=seed).query_indices
         return query_indices
 
@@ -65,10 +66,10 @@ class SummaryResults:
         start_time = time.time()
 
         if not find_connected_component:
-            graph = self.__build_graph(data, budget, graph_method, metric)
+            graph = self.__build_graph(data, graph_method, metric, budget=budget, num_classes=len(np.unique(oracle, return_counts=True)[1]), alpha=0.975)
             query_indices = query_model(data, budget, graph, random_state=seed).query_indices
         else:
-            outer_graph = self.__build_graph(data, budget, find_connected_component, 'euclidean')
+            outer_graph = self.__build_graph(data, find_connected_component, 'euclidean', budget=budget, num_classes=len(np.unique(oracle, return_counts=True)[1]), alpha=0.90)
             CC = FindConnectedComponents(data, budget, outer_graph, random_state=seed)
             query_indices = Parallel(n_jobs=2)(delayed(self._apply_query_model_to_component)
                                                (seed, data, query_model, graph_method, metric, CC, comp_label)
@@ -92,18 +93,19 @@ class SummaryResults:
             print(f'Beginning calculations for data generator [{data_generator[1]}]...')
 
             # calculate and save the scores of all search_parameters in search_grid
-            scores = Parallel(n_jobs=-1)(
+            import multiprocessing
+            scores = Parallel(n_jobs=multiprocessing.cpu_count()-2)(
                 delayed(self._get_new_data_point)(search_parameters) for search_parameters in search_grid
             )
             score_df = pd.DataFrame(scores, columns=['Score', 'Computation Time']+model_names)
-            score_df.to_csv(f'results/[{data_generator[1]}]_scores.csv', index=False)
+            score_df.to_csv(f'results/[{data_generator[1]}2]_scores.csv', index=False)
 
             # save the summary scores of all search_parameters in search_grid
             grouped_score_df = score_df[['Score', 'Computation Time']+model_names].groupby(model_names)
             average_score_df = grouped_score_df[['Score', 'Computation Time']].mean()
             average_score_df['Standard Deviation'] = grouped_score_df[['Score']].std()
             average_score_df[model_names] = grouped_score_df[model_names].first()
-            average_score_df.to_csv(f'results/[{data_generator[1]}]_average_scores.csv', index=False)
+            average_score_df.to_csv(f'results/[{data_generator[1]}2]_average_scores.csv', index=False)
 
         print('Total Run Time', time.time() - start_time)
 
@@ -130,7 +132,7 @@ class SummaryPlot:
             ('ProbCover', 'epsilon', '2fermat')
         ]
 
-        self.create_summary_plot()
+        self.create_summary_plot(file_name)
 
     def _get_sub_df(self, query_model, graph_type, prediction_model):
         if query_model == 'Kmeans':
@@ -149,10 +151,14 @@ class SummaryPlot:
 
         return sub_df
 
-    def create_summary_plot(self):
+    def create_summary_plot(self, file_name):
+        import re
+
         SPACING = 0.01
         fig, axes = plt.subplots(nrows=len(self._query_model_parameters), ncols=len(self._query_model_parameters[0]), figsize=(12, 22))
-        fig.tight_layout(rect=(4 * SPACING, SPACING, 1, 1 - SPACING))
+        fig.tight_layout(rect=(4*SPACING, SPACING, 1, 1 - 4*SPACING))
+        fig.text(0.5, 1 - 2*SPACING, f"{re.split(r'[\[\]]', file_name)[1].upper()}",
+                 va='center', fontsize=20, fontweight='bold', rotation='horizontal')
         fig.subplots_adjust(wspace=0.25, hspace=0.5)
 
         for i, parameters in enumerate(self._query_model_parameters):
@@ -183,7 +189,8 @@ class SummaryPlot:
                 ax.legend()
                 ax.set_xlabel('Size of Labeled Set')
                 ax.set_ylabel('Accuracy (%)')
-                ax.set_ylim(95, 100.5)
+                # ax.set_ylim(95, 100.5)
+                ax.set_ylim(50, 100)
 
         line = plt.Line2D([0.05, 0.95], [6 / 7, 6 / 7], color='black', linewidth=3, transform=fig.transFigure)
         fig.add_artist(line)

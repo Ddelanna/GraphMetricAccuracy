@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
+from math import floor
 
 
 def set_random_state(random_state):
@@ -92,44 +93,6 @@ class AdjacencyMatrices:
 
         return self._check_sparsity(epsilon_graph, sparse)
 
-# class BestParameter:
-#     def __init__(self, data, metric='euclidean'):
-#         self.data = data
-#         self.budget = 10
-#
-#         self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
-#
-#     def _compute_coverage(self, radius):
-#         """ :return coverage: the ratio of points in the same connected component as a labeled point
-#             to the total number of points """
-#
-#         adjacency_matrix = (self.distance_matrix <= radius).astype(int)
-#         from scipy.sparse.csgraph import connected_components
-#         n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
-#         _, component_sizes = np.unique(component_labels, return_counts=True)
-#         ordered_components_sizes = sorted(component_sizes, reverse=True)
-#         coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
-#
-#         return coverage
-#
-#     def best_radius(self, alpha):
-#         diameter = np.max(self.distance_matrix)
-#         tolerance = 0.01  # todo : how to determine tolerance?
-#         radius_lowerbound, radius_upperbound = 0, diameter
-#
-#         while (radius_upperbound - radius_lowerbound) > tolerance:
-#
-#             radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
-#
-#             coverage = self._compute_coverage(radius_to_compute)
-#             if coverage > alpha:
-#                 radius_upperbound = radius_to_compute
-#             else:
-#                 radius_lowerbound = radius_to_compute
-#
-#         best_radius = (radius_lowerbound + radius_upperbound) / 2
-#         return best_radius
-
 
 class BestParameter:
     def __init__(self, data):
@@ -137,9 +100,8 @@ class BestParameter:
 
     def best_radius(self, alpha):
         from scipy.spatial.distance import pdist
-        distance_matrix = pdist(self.data) # todo: sparse matrix
-
         from scipy.cluster.hierarchy import linkage
+        distance_matrix = pdist(self.data) # todo: sparse matrix
         agglomerative_clustering = linkage(distance_matrix, 'single')
 
         cluster_sizes = {i: 1 for i in range(self.data.shape[0])}
@@ -148,135 +110,25 @@ class BestParameter:
             cluster_sizes[new_cluster_id] = cluster_sizes[i] + cluster_sizes[j]
             cluster_sizes.pop(i)
             cluster_sizes.pop(j)
-
             coverage = sum(cluster_size for cluster_size in cluster_sizes.values() if cluster_size >= 10) / self.data.shape[0]
 
             if coverage >= alpha:
                 return distance
 
-#
-# class BestParameter:
-#     def __init__(self, data, metric='euclidean', budget=None, num_classes=None):
-#         self.data = data
-#         self.budget = min(budget, num_classes+10)
-#
-#         self.distance_matrix = AdjacencyMatrices().distance_matrix(data, metric=metric) # todo
-#
-#     def _compute_coverage(self, radius):
-#         """ :return coverage: the ratio of points in the same connected component as a labeled point
-#             to the total number of points """
-#
-#         adjacency_matrix = (self.distance_matrix <= radius).astype(int)
-#         from scipy.sparse.csgraph import connected_components
-#         n_components, component_labels = connected_components(csgraph=adjacency_matrix, directed=False, return_labels=True)
-#         _, component_sizes = np.unique(component_labels, return_counts=True)
-#         ordered_components_sizes = sorted(component_sizes, reverse=True)
-#         coverage = sum(ordered_components_sizes[:self.budget]) / self.data.shape[0]
-#
-#         return coverage
-#
-#     def best_radius(self, alpha):
-#         diameter = np.max(self.distance_matrix)
-#         tolerance = 0.01  # todo : how to determine tolerance?
-#         radius_lowerbound, radius_upperbound = 0, diameter
-#
-#         while (radius_upperbound - radius_lowerbound) > tolerance:
-#
-#             radius_to_compute = (radius_lowerbound + radius_upperbound) / 2
-#
-#             coverage = self._compute_coverage(radius_to_compute)
-#             if coverage > alpha:
-#                 radius_upperbound = radius_to_compute
-#             else:
-#                 radius_lowerbound = radius_to_compute
-#
-#         best_radius = (radius_lowerbound + radius_upperbound) / 2
-#         return best_radius
-
-# class FindConnectedComponents:
-#     def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
-#         self.unlabeled_points = unlabeled_points
-#         self._max_budget = budget
-#         self.budget = budget
-#         self.adjacency_matrix = adjacency_matrix
-#         self._random_state = set_random_state(random_state)
-#
-#         self.n_components, self.component_labels = self._find_connected_components()
-#         self.component_budgets = self._allot_component_budgets()
-#
-#     def _find_connected_components(self):
-#         """ :return n_components: number of connected components of the graph
-#             :return component_labels: corresponding connected component label of each data point """
-#
-#         from scipy.sparse.csgraph import connected_components
-#         n_components, component_labels = connected_components(csgraph=self.adjacency_matrix, directed=False,
-#                                                               return_labels=True)
-#
-#         return n_components, component_labels
-#
-#     def __sample_from_largest_components(self, component_sizes):
-#         """ While we are under budget, sample one point from the k largest connected components
-#             until the connected components are too small """
-#
-#         component_budgets = [0 for _ in range(self.n_components)]
-#         large_component_index = []
-#
-#         ordered_components_by_size = sorted(zip(component_sizes, np.arange(self.n_components)), reverse=True)
-#         for component_size, component_idx in ordered_components_by_size:
-#             # keep going until the (clusters are too small) or until (budget is used up)
-#             if (component_size <= 10) or (sum(component_budgets) == self._max_budget):
-#                 break
-#             component_budgets[component_idx] += 1
-#             large_component_index.append(component_idx)
-#
-#         return component_budgets, large_component_index
-#
-#     def _allot_component_budgets(self, budget, component_):
-#         base_component_budgets = (component_sizes >= 10).astype(int)
-#         ordered_component_sizes = sorted(enumerate(component_sizes), reverse=True)
-#         large_component_index = np.flatnonzero(base_component_budgets)
-#         component_budgets = base_component_budgets[large_component_index]
-#
-#         from math import floor
-#         remaining_budget = self._max_budget - sum(component_budgets)
-#         for idx in range(self.n_components):
-#             component_budgets[idx] += floor(component_size_proportion * remaining_budget)
-#
-#         # if there is leftover budget, sample randomly proportional to size
-#         total_points_in_large_components = sum([component_sizes[idx] for idx in large_component_index])
-#         if sum(max_component_budgets) < self._max_budget:
-#             distribution = [component_sizes[idx] / total_points_in_large_components for idx in
-#                             large_component_index]
-#             for _ in range(self._max_budget - sum(max_component_budgets)):
-#                 max_component_budgets[self._random_state.choice(large_component_index, p=distribution)] += 1
-#
-#
-#
-#     def _compute_all_component_budgets(self):
-#         """ :return component_budgets: the budget allotted for each component in the order of component labels """
-#
-#         num_points = self.unlabeled_points.shape[0]
-#         _, component_sizes = np.unique(self.component_labels, return_counts=True)
-#         component_size_proportion = component_sizes / num_points
-#
-#
-#         for budget in range(self._max_budget):
-#             self.component_budgets[budget] = self._allot_component_budgets(budget, component_size_proportion)
-#
-#
-#
-#         return max_component_budgets
-
 
 class FindConnectedComponents:
     def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
         self.unlabeled_points = unlabeled_points
+        self._max_budget = budget
         self.budget = budget
         self.adjacency_matrix = adjacency_matrix
         self._random_state = set_random_state(random_state)
 
         self.n_components, self.component_labels = self._find_connected_components()
-        self.component_budgets = self._allot_component_budgets()
+
+        self.component_budgets = np.zeros((self._max_budget + 1, self.n_components)).astype(int)
+        self._allot_component_budgets()
+        self.component_budgets = {budget: self.component_budgets[budget] for budget in range(1, self._max_budget+1)}
 
     def _find_connected_components(self):
         """ :return n_components: number of connected components of the graph
@@ -288,44 +140,41 @@ class FindConnectedComponents:
 
         return n_components, component_labels
 
-    def __sample_from_largest_components(self, component_sizes):
-        """ While we are under budget, sample one point from the k largest connected components
-            until the connected components are too small """
-
-        component_budgets = [0 for _ in range(self.n_components)]
-        large_component_index = []
-
-        ordered_components_by_size = sorted(zip(component_sizes, np.arange(self.n_components)), reverse=True)
-        for component_size, component_idx in ordered_components_by_size:
-            # keep going until the (clusters are too small) or until (budget is used up)
-            if (component_size <= 10) or (sum(component_budgets) == self.budget):
-                break
-            component_budgets[component_idx] += 1
-            large_component_index.append(component_idx)
-
-        return component_budgets, large_component_index
-
-    def _allot_component_budgets(self):
-        """ :return component_budgets: the budget allotted for each component in the order of component labels """
-
+    def __distribute_proportional_budget(self, budget, component_sizes, large_component_indices):
+        # distribute component budget proportional to component size
+        remaining_budget = budget - sum(self.component_budgets[budget])
         num_points = self.unlabeled_points.shape[0]
-        _, component_sizes = np.unique(self.component_labels, return_counts=True)
-
-        # ensure all large components have budget >= 1
-        component_budgets, large_component_index = self.__sample_from_largest_components(component_sizes)
-
-        # allot budget proportionally to component size
-        from math import floor
-        remaining_budget = self.budget - sum(component_budgets)
         for idx in range(self.n_components):
-            component_budgets[idx] += floor(component_sizes[idx] / num_points * remaining_budget)
+            self.component_budgets[budget][idx] += floor(component_sizes[idx] * remaining_budget / num_points)
 
         # if there is leftover budget, sample randomly proportional to size
-        total_points_in_large_components = sum([component_sizes[idx] for idx in large_component_index])
-        if sum(component_budgets) < self.budget:
-            distribution = [component_sizes[idx] / total_points_in_large_components for idx in large_component_index]
-            for _ in range(self.budget - sum(component_budgets)):
-                component_budgets[self._random_state.choice(large_component_index, p=distribution)] += 1
+        remaining_budget = int(budget - sum(self.component_budgets[budget]))  # recalculate remaining budget
+        if remaining_budget > 0:
+            total_points_in_large_components = sum(component_sizes[large_component_indices])
+            distribution = component_sizes[large_component_indices] / total_points_in_large_components
+            random_indices = [self._random_state.choice(large_component_indices, p=distribution) for _ in
+                              range(remaining_budget)]
+            self.component_budgets[budget][random_indices] += 1
 
-        return component_budgets
+    def _allot_component_budgets(self):
+        _, component_sizes = np.unique(self.component_labels, return_counts=True)
+        initialized_component_budgets = (component_sizes >= 10).astype(int)
+
+
+        # if budget <= sum(initialized_component_budgets)
+        ordered_component_sizes = sorted(zip(np.where(initialized_component_budgets == 1, component_sizes, 0),
+                                             np.arange(self.n_components)), reverse=True)
+        for budget in range(sum(initialized_component_budgets)+1):
+            indices = [index for (_, index) in ordered_component_sizes][:budget]
+            self.component_budgets[budget][indices] = 1
+
+        # if budget > sum(initialized_component_budgets)
+        large_component_indices = np.flatnonzero(initialized_component_budgets)  # indices of initialized_component_budgets that are nonzero
+        for budget in range(sum(initialized_component_budgets)+1, self._max_budget+1):
+            self.component_budgets[budget] = initialized_component_budgets
+            self.__distribute_proportional_budget(budget, component_sizes, large_component_indices)
+
+
+        return self.component_budgets
+
 

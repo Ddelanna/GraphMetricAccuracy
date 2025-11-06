@@ -1,4 +1,5 @@
 from _compile_ import SummaryResults, SummaryPlot
+from CreateData import *
 
 
 if __name__ == '__main__':
@@ -8,7 +9,7 @@ if __name__ == '__main__':
     # todo: rewrite BestParameter to take in a metric
 
 
-
-    SummaryResults()
-    for data in ['spiral']:
-        SummaryPlot(f"results/[{data}]_average_scores.csv")
+    data_generators = [(get_USPS_data, 'USPS')]  # (generator, file_name)
+    SummaryResults(data_generators)
+    for data in data_generators:
+        SummaryPlot(f"results/[{data[1]}]_average_scores.csv")

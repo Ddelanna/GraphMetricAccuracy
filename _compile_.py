@@ -14,9 +14,9 @@ from itertools import chain
 class SummaryResults:
     def __init__(self, data_generators):
         self._num_points = 1000  # num_points = None gets the entire data set
-        self._num_iters = 2 # number of runs to average the score over
+        self._num_iters = 5 # number of runs to average the score over
         self._data_generators = data_generators
-        self._budgets = [10, 20, 30, 40]
+        self._budgets = [10, 20, 30, 40, 50, 75, 100]
 
         self.create_score_csv()
 
@@ -26,13 +26,9 @@ class SummaryResults:
         seeds = np.arange(self._num_iters)
         find_connected_components = ['epsilon', 'knn', False]
         query_model_parameters = [(RandomSampling, None, None),
-                        (KmeansSampling, None, 'euclidean'),
-                        (GraphKmeansSampling, 'full', '1fermat'),
-                        (GraphKmeansSampling, 'full', '2fermat'),
-                        (ProbCoverSampling, 'epsilon', 'euclidean'),
-                        (ProbCoverSampling, 'epsilon', '1fermat'),
-                        (ProbCoverSampling, 'epsilon', '2fermat')]
-        prediction_models = ['euclidean', '1fermat', '2fermat']
+                                (ProbCoverSampling, 'epsilon', 'euclidean'),
+                                (ProbCoverSampling, 'epsilon', '2fermat')]
+        prediction_models = ['euclidean', '2fermat']
 
         search_grid = itertools.product(seeds, self._data_generators, find_connected_components,
                                         query_model_parameters, prediction_models)
@@ -43,11 +39,10 @@ class SummaryResults:
         if graph_method == 'full':
             return AdjacencyMatrices().distance_matrix(data, metric=metric)
         elif graph_method == 'epsilon':
-            radius = BestParameter(data).best_radius(alpha=alpha)
-            radius = radius if '2' not in metric else radius**2
+            radius = BestParameter(data, metric=metric).best_radius(alpha=alpha)
             return AdjacencyMatrices().epsilon_graph(data, radius=radius, metric=metric)
         elif graph_method == 'knn':
-            k = 5 # todo: find best k
+            k = 10 # todo: find best k
             return AdjacencyMatrices().knn_graph(data, k=k, metric=metric)
         else:
             return None
@@ -150,11 +145,7 @@ class SummaryPlot:
         }
         self._query_model_parameters = [
             ('Random', None, None),
-            ('Kmeans', None, 'euclidean'),
-            ('Kmeans', 'full', '1fermat'),
-            ('Kmeans', 'full', '2fermat'),
             ('ProbCover', 'epsilon', 'euclidean'),
-            ('ProbCover', 'epsilon', '1fermat'),
             ('ProbCover', 'epsilon', '2fermat')
         ]
 
@@ -181,7 +172,7 @@ class SummaryPlot:
         import re
 
         SPACING = 0.01
-        fig, axes = plt.subplots(nrows=len(self._query_model_parameters), ncols=len(self._query_model_parameters[0]), figsize=(12, 22))
+        fig, axes = plt.subplots(nrows=len(self._query_model_parameters), ncols=2, figsize=(9, 12))
         fig.tight_layout(rect=(4*SPACING, SPACING, 1, 1 - 4*SPACING))
         fig.text(0.5, 1 - 2*SPACING, f"{re.split(r'[\[\]]', file_name)[1].upper()}",
                  va='center', fontsize=20, fontweight='bold', rotation='horizontal')
@@ -195,7 +186,7 @@ class SummaryPlot:
             fig.text(SPACING, (pos.y0 + pos.y1) / 2, f"{query_model} ({self._name_dictionary[parameters[2]]})",
                      va='center', fontsize=12, fontweight='bold', rotation='vertical')
 
-            for j, prediction_model in enumerate(['euclidean', '1fermat', '2fermat']):
+            for j, prediction_model in enumerate(['euclidean', '2fermat']):
                 ax = axes[i, j]
 
                 pos = ax.get_position()
@@ -218,10 +209,10 @@ class SummaryPlot:
                 # ax.set_ylim(95, 100.5)
                 ax.set_ylim(50, 100)
 
-        line = plt.Line2D([0.05, 0.95], [6 / 7, 6 / 7], color='black', linewidth=3, transform=fig.transFigure)
-        fig.add_artist(line)
-        line = plt.Line2D([0.05, 0.95], [3 / 7, 3 / 7], color='black', linewidth=3, transform=fig.transFigure)
-        fig.add_artist(line)
+        # line = plt.Line2D([0.05, 0.95], [6 / 7, 6 / 7], color='black', linewidth=3, transform=fig.transFigure)
+        # fig.add_artist(line)
+        # line = plt.Line2D([0.05, 0.95], [3 / 7, 3 / 7], color='black', linewidth=3, transform=fig.transFigure)
+        # fig.add_artist(line)
 
         fig.show()
 

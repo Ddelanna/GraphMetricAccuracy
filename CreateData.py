@@ -50,8 +50,9 @@ def create_spiral_data(num_points, dimension=2, random_state=None):
 def get_MNIST_data(num_points=None, random_state=None):
     """ Read in csv files from https://www.kaggle.com/datasets/oddrationale/mnist-in-csv?resource=download. """
 
-    mnist_train = pd.read_csv('data/MNIST-data/mnist_train.csv')
-    X, y = mnist_train.drop(labels='label', axis=1), mnist_train['label']
+    # mnist_train = pd.read_csv('data/MNIST-data/mnist_train.csv')
+    # X, y = mnist_train.drop(labels='label', axis=1), mnist_train['label']
+    X, y = gl.datasets.load(dataset="mnist", metric="vae")
     factor = 28 * 255  # 28x28 pixel image with grayscale 0-255
 
     return _process_data(X / factor, y, num_points, random_state)
@@ -99,8 +100,70 @@ def get_OPTDIGITS_data(num_points, random_state=None):
     return _process_data(X, y, num_points, random_state)
 
 
+def get_multmoons_data(num_points=None, random_state=None):
+    from sklearn.datasets import make_moons
+    data1, labels1 = make_moons(n_samples=1000, noise=0.15, random_state=0)
+    data2, labels2 = make_moons(n_samples=1000, noise=0.15, random_state=1)
+    data3, labels3 = make_moons(n_samples=1000, noise=0.15, random_state=2)
+    data2 += np.array([4, 0.0])  # shift second moons
+    data3 += np.array([8, 0.0])  # shift third moons
+    data = np.vstack([data1, data2, data3])
+    labels = np.hstack([labels1, labels2 + 2, labels3 + 4])  # different labels for each moon
+    even = labels % 2 == 0
+    data[even] += np.array([-0.2, 0.2])  # shift even moons up slightly to avoid overlap
+    data[~even] += np.array([0.2, -0.2])  # shift odd moons down slightly to avoid overlap
+    labels = 1 * (~even)
+
+    return _process_data(data, labels, num_points, random_state)
 
 
+def get_swissroll_data(num_points=None, random_state=None):
+    from sklearn.datasets import make_swiss_roll
+    data1, labels1 = make_swiss_roll(n_samples=1500, noise=0.5, random_state=0)
+    data2, labels2 = make_swiss_roll(n_samples=1500, noise=0.5, random_state=1)
+    data2 = data2 @ np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]])  # rotate to intertwine
+
+    X = np.vstack([data1, data2])
+    y = np.concatenate((np.zeros(data1.shape[0]), np.ones(data2.shape[0])))
+
+    return _process_data(X, y, num_points, random_state)
+
+
+def get_smileyface_data(num_points=None, random_state=None):
+    d = 10  # other dimension for the eyes
+    n_head = 800
+    n_mouth = 200
+    n_eye = 400
+    rand_state = np.random.RandomState(0)
+
+    r_head = 3
+    r_mouth = 1.5
+    head_std = 0.01
+    mouth_std = 0.05
+    eye_std = 0.05
+
+    # head
+    head = rand_state.randn(n_head, 2)
+    head /= np.linalg.norm(head, axis=1, keepdims=True) / r_head
+    head += head_std * rand_state.randn(n_head, 2)
+
+    # mouth
+    mouth = np.linspace(-np.pi / 4.0, -3 * np.pi / 4.0, n_mouth)
+    mouth = np.column_stack([np.cos(mouth), np.sin(mouth)]) * r_mouth
+    mouth += mouth_std * rand_state.randn(n_mouth, 2)
+
+    # eyes
+    eye = eye_std * rand_state.randn(n_eye, d)
+    right_eye = eye + np.array([[1, 1] + [0] * (d - 2)])
+    left_eye = eye + np.array([[-1, 1] + [0] * (d - 2)])
+
+    X = np.vstack(
+        [np.hstack((head, np.zeros((n_head, d - 2)))), np.hstack((mouth, np.zeros((n_mouth, d - 2)))), right_eye,
+         left_eye])
+    y = np.hstack(
+        [np.zeros(n_head), np.zeros(n_mouth), np.ones(n_eye), np.ones(n_eye)])  # label eyes as 1, rest as 0
+
+    return _process_data(X, y, num_points, random_state)
 
 
 

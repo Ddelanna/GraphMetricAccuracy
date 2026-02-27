@@ -95,8 +95,8 @@ class AdjacencyMatrices:
 
 
 class BestParameter:
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, data, metric='euclidean'):
+        self.data = data if '2' not in metric else data**2
 
     def best_radius(self, alpha):
         from scipy.spatial.distance import pdist

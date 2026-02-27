@@ -9,7 +9,7 @@ if __name__ == '__main__':
     # todo: rewrite BestParameter to take in a metric
 
 
-    data_generators = [(get_USPS_data, 'USPS')]  # (generator, file_name)
+    data_generators = [(get_swissroll_data, 'swissroll'), (get_smileyface_data, 'face'), (get_multmoons_data, 'moons')]  # (generator, file_name)
     SummaryResults(data_generators)
     for data in data_generators:
         SummaryPlot(f"results/[{data[1]}]_average_scores.csv")

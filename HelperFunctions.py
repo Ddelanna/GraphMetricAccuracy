@@ -117,6 +117,7 @@ class BestParameter:
 
 
 class FindConnectedComponents:
+    # todo: memory storage is very inefficient - lots of unnecessary info stored
     def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
         self.unlabeled_points = unlabeled_points
         self._max_budget = budget
@@ -125,7 +126,6 @@ class FindConnectedComponents:
         self._random_state = set_random_state(random_state)
 
         self.n_components, self.component_labels = self._find_connected_components()
-
         self.component_budgets = np.zeros((self._max_budget + 1, self.n_components)).astype(int)
         self._allot_component_budgets()
         self.component_budgets = {budget: self.component_budgets[budget] for budget in range(1, self._max_budget+1)}
@@ -148,13 +148,15 @@ class FindConnectedComponents:
             self.component_budgets[budget][idx] += floor(component_sizes[idx] * remaining_budget / num_points)
 
         # if there is leftover budget, sample randomly proportional to size
-        remaining_budget = int(budget - sum(self.component_budgets[budget]))  # recalculate remaining budget
+        remaining_budget = budget - sum(self.component_budgets[budget])  # recalculate remaining budget
         if remaining_budget > 0:
             total_points_in_large_components = sum(component_sizes[large_component_indices])
             distribution = component_sizes[large_component_indices] / total_points_in_large_components
-            random_indices = [self._random_state.choice(large_component_indices, p=distribution) for _ in
+            random_indices = [int(self._random_state.choice(large_component_indices, p=distribution)) for _ in
                               range(remaining_budget)]
-            self.component_budgets[budget][random_indices] += 1
+            for index in random_indices:
+                self.component_budgets[budget][index] += 1
+            # self.component_budgets[budget][random_indices] += 1  <-- idk why this doesn't output the same as the above two lines
 
     def _allot_component_budgets(self):
         _, component_sizes = np.unique(self.component_labels, return_counts=True)

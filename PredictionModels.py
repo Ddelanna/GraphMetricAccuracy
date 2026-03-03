@@ -43,8 +43,9 @@ class GraphMetricAccuracy:
 
         self._radius = radius
         if radius is None:
-            radius = HelperFunctions.BestParameter(unlabeled_points).best_radius(0.975)
-            self._radius = radius if '2' not in metric else radius**2
+            radius = HelperFunctions.BestParameter(unlabeled_points, metric=metric).best_radius(0.95)
+            # self._radius = radius if '2' not in metric else radius**2
+            self._radius = radius
 
         self.labeled_points = self.unlabeled_points.loc[self.query_indices]
         self.labels = self.oracle[self.query_indices]
@@ -54,6 +55,21 @@ class GraphMetricAccuracy:
 
         if create_cm:
             Plots.plot_confusion_matrix(confusion_matrix)
+
+        # self.plot_dataset(self.unlabeled_points, predicted_labels, query_indices)
+
+    def plot_dataset(self, data, labels, query_indices, name=""):
+        import matplotlib.pyplot as plt
+        plt.close()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        scatter = ax.scatter(data.iloc[:, 0], data.iloc[:, 1], c=labels, cmap='viridis', s=10, marker='o')
+        scatter2 = ax.scatter(data.loc[query_indices].iloc[:, 0], data.loc[query_indices].iloc[:, 1], c='red',
+                              s=10, marker='o')
+        ax.set_title(f"{len(query_indices)}+{name}")
+        ax.set_xlabel("Feature 1")
+        ax.set_ylabel("Feature 2")
+        plt.colorbar(scatter, ax=ax, label='Class Label')
+        plt.show()
 
     def __graph_predict(self):
         from scipy.sparse.csgraph import dijkstra

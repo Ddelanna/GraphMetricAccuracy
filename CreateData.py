@@ -130,30 +130,30 @@ def get_swissroll_data(num_points=None, random_state=None):
 
 
 def get_smileyface_data(num_points=None, random_state=None):
-    d = 10  # other dimension for the eyes
-    n_head = 800
+    d = 3  # other dimension for the eyes
+    n_head = 1000
     n_mouth = 200
-    n_eye = 400
-    rand_state = np.random.RandomState(0)
+    n_eye = 1000
+    random_state = np.random.RandomState(0)
 
     r_head = 3
     r_mouth = 1.5
     head_std = 0.01
     mouth_std = 0.05
-    eye_std = 0.05
+    eye_std = 0.25
 
     # head
-    head = rand_state.randn(n_head, 2)
+    head = random_state.randn(n_head, 2)
     head /= np.linalg.norm(head, axis=1, keepdims=True) / r_head
-    head += head_std * rand_state.randn(n_head, 2)
+    head += head_std * random_state.randn(n_head, 2)
 
     # mouth
     mouth = np.linspace(-np.pi / 4.0, -3 * np.pi / 4.0, n_mouth)
     mouth = np.column_stack([np.cos(mouth), np.sin(mouth)]) * r_mouth
-    mouth += mouth_std * rand_state.randn(n_mouth, 2)
+    mouth += mouth_std * random_state.randn(n_mouth, 2)
 
     # eyes
-    eye = eye_std * rand_state.randn(n_eye, d)
+    eye = eye_std * random_state.randn(n_eye, d)
     right_eye = eye + np.array([[1, 1] + [0] * (d - 2)])
     left_eye = eye + np.array([[-1, 1] + [0] * (d - 2)])
 

@@ -10,97 +10,101 @@ import pandas as pd
 from itertools import chain
 
 
-
-class SummaryResults:
-    def __init__(self, data_generators):
-        self._num_points = 1000  # num_points = None gets the entire data set
-        self._num_iters = 5 # number of runs to average the score over
-        self._data_generators = data_generators
+class ComputeResults:
+    def __init__(self, data_generator, search_parameters):
         self._budgets = [10, 20, 30, 40, 50, 75, 100]
+        self._num_points = None  # num_points = None gets the entire data set
+
+        self.data, self.oracle = data_generator(self._num_points)
+        self.radius = BestParameter(self.data).best_radius(alpha=0.95)
+        self.seed, self.find_connected_components, query_model_parameters, self.prediction_model = search_parameters
+        (self.query_model, self.graph_method, self.metric) = query_model_parameters
+
+    def __build_graph(self, data, graph_method, metric):
+        if graph_method == 'full':
+            return AdjacencyMatrices().distance_matrix(data, metric=metric)
+        elif graph_method == 'epsilon':
+            return AdjacencyMatrices().epsilon_graph(data, radius=self.radius, metric=metric)
+        else:
+            return None
+
+    def __apply_query_model_to_component(self, budget, CC, component_label):
+        component_data = self.data[CC.component_labels == component_label]
+        component_budget = CC.component_budgets[budget][component_label]
+        component_graph = self.__build_graph(component_data, self.graph_method, self.metric)
+        query_indices = self.query_model(component_data, component_budget, component_graph, random_state=self.seed).query_indices
+        return query_indices
+
+    def _compute_data_points_using_standard_method(self):
+        start = time.time()
+        new_data_points = []
+
+        graph = self.__build_graph(self.data, self.graph_method, self.metric)
+        query_indices = self.query_model(self.data, max(self._budgets), graph, random_state=self.seed).query_indices
+        end = time.time()
+
+        for budget in self._budgets:
+            score = NearestNeighborAccuracy(self.data, query_indices[:budget], self.oracle, metric=self.prediction_model).score
+
+            new_data_points.append([np.round(100 * score), start-end, budget, self.find_connected_components,
+                                    f'{self.graph_method}-{self.metric}', str(self.query_model), self.prediction_model])
+
+        return new_data_points
+
+    def _compute_data_points_using_connected_components(self):
+        start = time.time()
+        new_data_points = []
+
+        outer_graph = self.__build_graph(self.data, graph_method=self.find_connected_components, metric='euclidean')
+        CC = FindConnectedComponents(self.data, max(self._budgets), outer_graph, random_state=self.seed)
+        end = time.time()
+
+        for budget in self._budgets:
+            component_budgets = CC.component_budgets[budget]
+            query_indices = [self.__apply_query_model_to_component(budget, CC, comp_label)
+                             for comp_label in range(CC.n_components) if component_budgets[comp_label] != 0]
+            query_indices = list(chain.from_iterable(query_indices))  # flatten the list
+
+            score = NearestNeighborAccuracy(self.data, query_indices, self.oracle, metric=self.prediction_model).score
+
+            new_data_points.append([np.round(100 * score), start-end, budget, self.find_connected_components,
+                                   f'{self.graph_method}-{self.metric}', str(self.query_model), self.prediction_model])# todo fix time
+
+        return new_data_points
+
+    def compute_data_points(self):
+        if self.find_connected_components == False:
+            return self._compute_data_points_using_standard_method()
+        else:
+            return self._compute_data_points_using_connected_components()
+
+
+class CompileResults:
+    def __init__(self, data_generators):
+        self._num_iters = 10 # number of runs to average the score over
+        self._data_generators = data_generators
 
         self.create_score_csv()
 
     def _build_search_grid(self):
-        import itertools
+        from itertools import product
 
         seeds = np.arange(self._num_iters)
-        find_connected_components = ['epsilon', 'knn', False]
-        query_model_parameters = [(RandomSampling, None, None),
+        find_connected_components = ['epsilon', False]
+        query_model_parameters = [(RandomSampling, None, None), # (query_model, graph_method, metric)
+                                (KmeansSampling, None, 'euclidean'),
+                                (GraphKmeansSampling, 'full', '2fermat'),
                                 (ProbCoverSampling, 'epsilon', 'euclidean'),
+                                (ProbCoverSampling, 'epsilon', '1fermat'),
                                 (ProbCoverSampling, 'epsilon', '2fermat')]
-        prediction_models = ['euclidean', '2fermat']
+        prediction_models = ['euclidean', '1fermat', '2fermat']
+        # find_connected_components = ['epsilon']
+        # query_model_parameters = [
+        #                           (ProbCoverSampling, 'epsilon', '2fermat')]
+        # prediction_models = ['2fermat']
 
-        search_grid = itertools.product(seeds, self._data_generators, find_connected_components,
-                                        query_model_parameters, prediction_models)
+        search_grid = product(seeds, find_connected_components, query_model_parameters, prediction_models)
         return list(search_grid)
-
-    @staticmethod
-    def __build_graph(data, graph_method, metric, alpha=1.0):
-        if graph_method == 'full':
-            return AdjacencyMatrices().distance_matrix(data, metric=metric)
-        elif graph_method == 'epsilon':
-            radius = BestParameter(data, metric=metric).best_radius(alpha=alpha)
-            return AdjacencyMatrices().epsilon_graph(data, radius=radius, metric=metric)
-        elif graph_method == 'knn':
-            k = 10 # todo: find best k
-            return AdjacencyMatrices().knn_graph(data, k=k, metric=metric)
-        else:
-            return None
-
-    def __get_query_indices(self, search_parameters):
-        new_data_points = []
-        seed, data_generator, find_connected_component, (query_model, graph_method, metric), prediction_model = search_parameters
-
-        data, oracle = data_generator[0](self._num_points, random_state=seed)
-        graph = self.__build_graph(data, graph_method, metric, alpha=0.975)
-        query_indices = query_model(data, max(self._budgets), graph, random_state=seed).query_indices
-
-        for budget in self._budgets:
-            score = NearestNeighborAccuracy(data, query_indices[:budget], oracle, metric=prediction_model).score
-
-            new_data_points.append([np.round(100 * score), time.time(), budget, find_connected_component,
-                                    f'{graph_method}-{metric}', str(query_model), prediction_model])
-
-        return new_data_points
-
-    def __apply_query_model_to_component(self, seed, data, budget, sampling_model, CC, component_label):
-        query_model, graph_method, metric = sampling_model
-        component_data = data[CC.component_labels == component_label]
-        component_budget = CC.component_budgets[budget][component_label]
-        component_graph = self.__build_graph(component_data, graph_method, metric, alpha=0.975)
-        query_indices = query_model(component_data, component_budget, component_graph, random_state=seed).query_indices
-        return query_indices
-
-    def __get_query_indices_using_connected_components(self, search_parameters):
-        new_data_points = []
-        seed, data_generator, find_connected_component, sampling_model, prediction_model = search_parameters
-
-        data, oracle = data_generator[0](self._num_points, random_state=seed)
-        outer_graph = self.__build_graph(data, find_connected_component, 'euclidean', alpha=0.90)
-        CC = FindConnectedComponents(data, max(self._budgets), outer_graph, random_state=seed)
-
-        for budget in self._budgets:
-            component_budgets = CC.component_budgets[budget]
-            query_indices = [self.__apply_query_model_to_component(seed, data, budget, sampling_model, CC, comp_label)
-                             for comp_label in range(CC.n_components) if component_budgets[comp_label] != 0]
-
-            query_indices = list(chain.from_iterable(query_indices))  # flatten the list
-
-            score = NearestNeighborAccuracy(data, query_indices, oracle, metric=prediction_model).score
-
-            query_model, graph_method, metric = sampling_model
-            new_data_points.append([np.round(100 * score), time.time(), budget, find_connected_component,
-                                   f'{graph_method}-{metric}', str(query_model), prediction_model])# todo fix time
-
-        return new_data_points
-
-    def _get_data_points(self, search_parameters):
-        find_connected_components = search_parameters[2]
-
-        if not find_connected_components:
-            return self.__get_query_indices(search_parameters)
-        else:
-            return self.__get_query_indices_using_connected_components(search_parameters)
 
     def create_score_csv(self):
         search_grid = self._build_search_grid()
@@ -113,10 +117,10 @@ class SummaryResults:
             # calculate and save the scores of all search_parameters in search_grid
             import multiprocessing
             scores = Parallel(n_jobs=multiprocessing.cpu_count()-2)(
-                delayed(self._get_data_points)(search_parameters)
+                delayed(ComputeResults(data_generator[0], search_parameters).compute_data_points)()
                 for search_parameters in search_grid
             )
-            scores = [inner for outer in scores for inner in outer]
+            scores = [inner for outer in scores for inner in outer] # flatten the list by one level
             score_df = pd.DataFrame(scores, columns=['Score', 'Computation Time']+model_names)
             score_df.to_csv(f'results/[{data_generator[1]}]_scores.csv', index=False)
 
@@ -139,8 +143,8 @@ class SummaryPlot:
             '1fermat': 'Graph Metric',
             '2fermat': 'Fermat Metric',
             None: 'None',
-            'False': 'None',
-            'epsilon': 'Epsilon Graph',
+            'False': 'Control',
+            'epsilon': 'with Connected Components',
             'knn': 'kNN Graph',
         }
         self._query_model_parameters = [
@@ -207,7 +211,7 @@ class SummaryPlot:
                 ax.set_xlabel('Size of Labeled Set')
                 ax.set_ylabel('Accuracy (%)')
                 # ax.set_ylim(95, 100.5)
-                ax.set_ylim(50, 100)
+                ax.set_ylim(50, 101)
 
         # line = plt.Line2D([0.05, 0.95], [6 / 7, 6 / 7], color='black', linewidth=3, transform=fig.transFigure)
         # fig.add_artist(line)
@@ -217,4 +221,47 @@ class SummaryPlot:
         fig.show()
 
 
+class ComparisonPlot:
+    def __init__(self, file_name):
+        self.df = pd.read_csv(file_name)
 
+        self._name_dictionary = {
+            'euclidean': 'Euclidean',
+            '1fermat': 'Graph Metric',
+            '2fermat': 'Fermat Metric',
+            None: 'None',
+            'False': 'Control',
+            'epsilon': 'with Connected Components',
+            'knn': 'kNN Graph',
+        }
+        self._query_model_parameters = [
+            ('Random', 'False', f'None-None',  'euclidean'),
+            ('ProbCover', 'False', 'epsilon-euclidean', 'euclidean'),
+            ('Kmeans', 'False', f'None-euclidean', 'euclidean'),
+            ('ProbCover', 'epsilon', 'epsilon-1fermat', '1fermat'),
+            ('ProbCover', 'epsilon', 'epsilon-2fermat', '2fermat')
+        ]
+
+        self.create_comparison_plot(file_name)
+
+    def create_comparison_plot(self, file_name):
+        colors = ['red', 'green', 'black', 'blue', 'purple']
+        labels = ['Random', 'ProbCover', 'Kmeans', '1Fermat ProbCover', '2Fermat ProbCover']
+        for i, (query_model, use_CCS, graph_type, prediction_model) in enumerate(self._query_model_parameters):
+            sub_df = self.df[
+                (self.df["Sampling Model"] == f"<class 'QueryModels.{query_model}Sampling'>") &
+                (self.df["Graph Type"] == graph_type) &
+                (self.df["Prediction Method"] == prediction_model) &
+                (self.df["Find Components"] == use_CCS)
+                ]
+            print(sub_df)
+            plt.plot( sub_df['Budget'],  sub_df['Score'],
+                    marker='o', linestyle='--', color=colors[i], label=labels[i], alpha=0.9)
+
+        plt.grid(True)
+        plt.legend()
+        plt.xlabel('Size of Labeled Set')
+        plt.ylabel('Accuracy (%)')
+        plt.ylim(0, 101)
+        plt.title(file_name)
+        plt.show()

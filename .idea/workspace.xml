@@ -4,25 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="15adc052-9a8c-4f66-8122-12a358cfac6e" name="Changes" comment="commitCode_v5.0 : QueryModels create a ranked list of points to query">
+    <list default="true" id="15adc052-9a8c-4f66-8122-12a358cfac6e" name="Changes" comment="ComparisonMethod1.0: creating a comparison graph of the different models">
+      <change afterPath="$PROJECT_DIR$/results/[Coil20]_average_scores.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/results/[Multimoons]_average_scores.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/results/[Swissrolls]_average_scores.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreateData.py" beforeDir="false" afterPath="$PROJECT_DIR$/CreateData.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/HelperFunctions.py" beforeDir="false" afterPath="$PROJECT_DIR$/HelperFunctions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PredictionModels.py" beforeDir="false" afterPath="$PROJECT_DIR$/PredictionModels.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QueryModels.py" beforeDir="false" afterPath="$PROJECT_DIR$/QueryModels.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/RUN_ME.py" beforeDir="false" afterPath="$PROJECT_DIR$/RUN_ME.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/_compile_.py" beforeDir="false" afterPath="$PROJECT_DIR$/_compile_.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[USPS]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[USPS]_average_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[USPS]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[USPS]_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[digits]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[digits]_average_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[digits]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[digits]_scores.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/[face]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[face]_average_scores.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/[face]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[face]_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[moons]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[moons]_average_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[moons]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[moons]_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[satellite]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[satellite]_average_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[satellite]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[satellite]_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[swissroll]_average_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[swissroll]_average_scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/[swissroll]_scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/results/[swissroll]_scores.csv" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,7 +23,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="commitCode_v5.0" />
+        <entry key="$PROJECT_DIR$" value="MethodComparison1.0" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -47,6 +38,16 @@
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/Ddelanna/GraphMetricAccuracy&quot;,
     &quot;accountId&quot;: &quot;fd1730a2-200e-4cc0-9a04-2c8b935f5af4&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;Ddelanna&quot;,
+    &quot;repository&quot;: &quot;GraphMetricAccuracy&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
@@ -63,8 +64,8 @@
     "Python.RUN_ME.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "MethodComparison1.0",
-    "last_opened_file_path": "C:/Users/dodel/PycharmProjects/GraphMetricAccuracy",
+    "git-widget-placeholder": "MethodComparison1.1",
+    "last_opened_file_path": "C:/Users/dodel/PycharmProjects/GraphMetricAccuracy/results",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -75,6 +76,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\dodel\PycharmProjects\GraphMetricAccuracy\results" />
       <recent name="C:\Users\dodel\PycharmProjects\GraphMetricAccuracy" />
     </key>
   </component>
@@ -132,7 +134,14 @@
       <workItem from="1772046650582" duration="6959000" />
       <workItem from="1772143286851" duration="8525000" />
       <workItem from="1772479934738" duration="14806000" />
-      <workItem from="1772514381371" duration="7807000" />
+      <workItem from="1772514381371" duration="8606000" />
+      <workItem from="1772653098455" duration="12000" />
+      <workItem from="1772749592946" duration="998000" />
+      <workItem from="1772811673805" duration="396000" />
+      <workItem from="1772814366604" duration="483000" />
+      <workItem from="1772814867151" duration="10000" />
+      <workItem from="1772818894800" duration="3722000" />
+      <workItem from="1773600259553" duration="2702000" />
     </task>
     <task id="LOCAL-00001" summary="commitCode_v4.0">
       <option name="closed" value="true" />
@@ -166,7 +175,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772203652462</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="ComparisonMethod1.0: creating a comparison graph of the different models">
+      <option name="closed" value="true" />
+      <created>1772576567954</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1772576567954</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -186,20 +203,21 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="commitCode_v4.0" />
     <MESSAGE value="commitCode_v5.0 : QueryModels create a ranked list of points to query" />
-    <option name="LAST_COMMIT_MESSAGE" value="commitCode_v5.0 : QueryModels create a ranked list of points to query" />
+    <MESSAGE value="ComparisonMethod1.0: creating a comparison graph of the different models" />
+    <option name="LAST_COMMIT_MESSAGE" value="ComparisonMethod1.0: creating a comparison graph of the different models" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/_compile_.py</url>
-          <line>264</line>
+          <line>266</line>
           <option name="timeStamp" value="8" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/GraphMetricAccuracy$RUN_ME.coverage" NAME="RUN_ME Coverage Results" MODIFIED="1772573153438" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/GraphMetricAccuracy$RUN_ME.coverage" NAME="RUN_ME Coverage Results" MODIFIED="1773602305259" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

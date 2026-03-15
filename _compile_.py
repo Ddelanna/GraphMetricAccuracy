@@ -80,11 +80,12 @@ class ComputeResults:
 
 
 class CompileResults:
-    def __init__(self, data_generators):
+    """ Averages the results from ComputeResults. """
+    def __init__(self, data_generators, in_parallel=False):
         self._num_iters = 10 # number of runs to average the score over
         self._data_generators = data_generators
 
-        self.create_score_csv()
+        self.create_score_csv(in_parallel)
 
     def _build_search_grid(self):
         from itertools import product
@@ -93,11 +94,11 @@ class CompileResults:
         find_connected_components = ['epsilon', False]
         query_model_parameters = [(RandomSampling, None, None), # (query_model, graph_method, metric)
                                 (KmeansSampling, None, 'euclidean'),
-                                (GraphKmeansSampling, 'full', '2fermat'),
+                                # (GraphKmeansSampling, 'full', '2fermat'),
                                 (ProbCoverSampling, 'epsilon', 'euclidean'),
                                 (ProbCoverSampling, 'epsilon', '1fermat'),
                                 (ProbCoverSampling, 'epsilon', '2fermat')]
-        prediction_models = ['euclidean', '1fermat', '2fermat']
+        prediction_models = ['euclidean', '2fermat']
         # find_connected_components = ['epsilon']
         # query_model_parameters = [
         #                           (ProbCoverSampling, 'epsilon', '2fermat')]
@@ -106,7 +107,7 @@ class CompileResults:
         search_grid = product(seeds, find_connected_components, query_model_parameters, prediction_models)
         return list(search_grid)
 
-    def create_score_csv(self):
+    def create_score_csv(self, in_parallel=False):
         search_grid = self._build_search_grid()
         model_names = ['Budget', 'Find Components', 'Graph Type', 'Sampling Model', 'Prediction Method']
 
@@ -116,7 +117,8 @@ class CompileResults:
 
             # calculate and save the scores of all search_parameters in search_grid
             import multiprocessing
-            scores = Parallel(n_jobs=multiprocessing.cpu_count()-2)(
+            n_jobs = multiprocessing.cpu_count()-1 if in_parallel else 1
+            scores = Parallel(n_jobs=n_jobs)(
                 delayed(ComputeResults(data_generator[0], search_parameters).compute_data_points)()
                 for search_parameters in search_grid
             )

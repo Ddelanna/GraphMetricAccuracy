@@ -97,9 +97,10 @@ class GraphKmeansSampling:
 
 class ProbCoverSampling:
     def __init__(self, unlabeled_points, budget, adjacency_matrix, random_state=None):
+        import copy
         self.unlabeled_points = unlabeled_points
         self.budget = budget
-        self.adjacency_matrix = adjacency_matrix
+        self.adjacency_matrix = copy.deepcopy(adjacency_matrix)
         self._random_state = set_random_state(random_state)
 
         self.query_indices = self._get_query_indices()
